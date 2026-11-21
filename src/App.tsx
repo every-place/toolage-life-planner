@@ -1,90 +1,95 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { addDays, dayOfYear, daysLeftInYear, formatLong, today } from './lib/dates';
-import {
-  PRIORITIES,
-  addTask,
-  dailyStatus,
-  forwardUnfinished,
-  isUnfinished,
-  nextStatus,
-  setDailyStatus,
-  tasksForDay,
-  updateSettings,
-  updateTask,
-  type Priority,
-  type Task,
-} from './lib/model';
+import { useEffect, useState } from 'react';
+import { monthOf, today } from './lib/dates';
+import { updateSettings } from './lib/model';
 import { usePlanner } from './lib/store';
-import { StatusMark, statusLabel } from './components/StatusMark';
-import { TaskDetail } from './components/TaskDetail';
+import { DayPage } from './components/DayPage';
+import { MonthPage } from './components/MonthPage';
+import { GoalsPage } from './components/GoalsPage';
 import { SettingsDialog } from './components/SettingsDialog';
 
-const DAY_RE = /^#(\d{4}-\d{2}-\d{2})$/;
+type View = { name: 'day'; date: string } | { name: 'month'; month: string } | { name: 'goals' };
 
-function dateFromHash(): string {
-  const m = DAY_RE.exec(window.location.hash);
-  return m ? m[1] : today();
+function viewFromHash(): View {
+  const h = window.location.hash.slice(1);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(h)) return { name: 'day', date: h };
+  if (h === 'month') return { name: 'month', month: monthOf(today()) };
+  const m = /^month-(\d{4}-\d{2})$/.exec(h);
+  if (m) return { name: 'month', month: m[1] };
+  if (h === 'goals') return { name: 'goals' };
+  return { name: 'day', date: today() };
+}
+
+function hashFor(v: View): string {
+  if (v.name === 'day') return v.date === today() ? '' : `#${v.date}`;
+  if (v.name === 'month') return v.month === monthOf(today()) ? '#month' : `#month-${v.month}`;
+  return '#goals';
 }
 
 export default function App() {
   const { state, apply, replace } = usePlanner();
-  const [date, setDate] = useState(dateFromHash);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [view, setView] = useState<View>(viewFromHash);
+  const [lastDay, setLastDay] = useState(view.name === 'day' ? view.date : today());
+  const [focusGoal, setFocusGoal] = useState<string | undefined>();
   const [showSettings, setShowSettings] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newPriority, setNewPriority] = useState<Priority>('A');
-  const [newTag, setNewTag] = useState('');
-  const [forwardTo, setForwardTo] = useState(addDays(date, 1));
-  const [toast, setToast] = useState('');
-  const titleRef = useRef<HTMLInputElement>(null);
-  const { settings } = state;
 
   useEffect(() => {
-    const onHash = () => setDate(dateFromHash());
+    const onHash = () => setView(viewFromHash());
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
   useEffect(() => {
-    const want = date === today() ? '' : `#${date}`;
+    const want = hashFor(view);
     if (window.location.hash !== want) history.replaceState(null, '', want || window.location.pathname);
-    setForwardTo(addDays(date, 1));
-  }, [date]);
+    if (view.name === 'day') setLastDay(view.date);
+    window.scrollTo(0, 0);
+  }, [view]);
 
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(''), 3500);
-    return () => clearTimeout(t);
-  }, [toast]);
-
-  const tasks = useMemo(() => tasksForDay(state, date), [state, date]);
-  const unfinished = tasks.filter(isUnfinished);
-  const openTask = openId ? state.tasks.find((t) => t.id === openId) : undefined;
-  const isToday = date === today();
-
-  const add = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTitle.trim()) return;
-    apply((s) => addTask(s, { title: newTitle, date, priority: newPriority, tag: newTag }));
-    setNewTitle('');
-    titleRef.current?.focus();
+  const goDay = (date: string) => setView({ name: 'day', date });
+  const goGoal = (id: string) => {
+    setFocusGoal(id);
+    setView({ name: 'goals' });
   };
 
-  const cycle = (t: Task) => {
-    if (t.status === 'forwarded') {
-      setOpenId(t.id);
-      return;
-    }
-    apply((s) => updateTask(s, t.id, { status: nextStatus(t.status) }));
-  };
-
-  const forwardAll = () => {
-    const n = unfinished.length;
-    apply((s) => forwardUnfinished(s, date, forwardTo));
-    setToast(`Forwarded ${n} ${n === 1 ? 'task' : 'tasks'} to ${formatLong(forwardTo)}.`);
-  };
-
-  const tagLabel = (letter?: string) => settings.tags.find((t) => t.letter === letter)?.label ?? '';
+  const tabs: { key: View['name']; label: string; go: () => void; icon: JSX.Element }[] = [
+    {
+      key: 'day',
+      label: 'Day',
+      go: () => goDay(lastDay),
+      icon: (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="4" y="3" width="16" height="18" rx="2.5" />
+          <path d="M8 8h8M8 12h8M8 16h5" />
+        </svg>
+      ),
+    },
+    {
+      key: 'month',
+      label: 'Month',
+      go: () => setView({ name: 'month', month: monthOf(lastDay) }),
+      icon: (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3" y="5" width="18" height="16" rx="2.5" />
+          <path d="M3 10h18M8 3v4M16 3v4" />
+        </svg>
+      ),
+    },
+    {
+      key: 'goals',
+      label: 'Goals',
+      go: () => {
+        setFocusGoal(undefined);
+        setView({ name: 'goals' });
+      },
+      icon: (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="8.5" />
+          <circle cx="12" cy="12" r="4.5" />
+          <circle cx="12" cy="12" r="1" />
+        </svg>
+      ),
+    },
+  ];
 
   return (
     <div className="app">
@@ -99,6 +104,14 @@ export default function App() {
             by <b>Toolage</b>
           </span>
         </div>
+        <nav className="tabs" aria-label="Sections">
+          {tabs.map((t) => (
+            <button key={t.key} className={`tab${view.name === t.key ? ' on' : ''}`} onClick={t.go} aria-current={view.name === t.key ? 'page' : undefined}>
+              {t.icon}
+              <span>{t.label}</span>
+            </button>
+          ))}
+        </nav>
         <button className="icon-btn" onClick={() => setShowSettings(true)} aria-label="Settings">
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
             <path
@@ -113,195 +126,20 @@ export default function App() {
       </header>
 
       <main className="page">
-        <nav className="daynav" aria-label="Choose day">
-          <button className="icon-btn" onClick={() => setDate(addDays(date, -1))} aria-label="Previous day">
-            ‹
-          </button>
-          <div className="daytitle">
-            <h1>{formatLong(date)}</h1>
-            <p className="muted small">
-              Day {dayOfYear(date)} · {daysLeftInYear(date)} left
-              {!isToday && (
-                <>
-                  {' · '}
-                  <button className="link" onClick={() => setDate(today())}>
-                    Back to today
-                  </button>
-                </>
-              )}
-            </p>
-          </div>
-          <input
-            id="day-picker"
-            className="daypicker"
-            type="date"
-            value={date}
-            onChange={(e) => e.target.value && setDate(e.target.value)}
-            aria-label="Go to date"
-          />
-          <button className="icon-btn" onClick={() => setDate(addDays(date, 1))} aria-label="Next day">
-            ›
-          </button>
-        </nav>
-
-        {settings.dailyTasks.length > 0 && (
-          <section className="daily" aria-label="Daily tasks">
-            {settings.dailyTasks.map((name) => {
-              const st = dailyStatus(state, date, name);
-              return (
-                <button
-                  key={name}
-                  className={`chip chip-${st}`}
-                  onClick={() => apply((s) => setDailyStatus(s, date, name, nextStatus(st)))}
-                  aria-label={`${name}: ${statusLabel(st)}`}
-                >
-                  <StatusMark status={st} />
-                  {name}
-                </button>
-              );
-            })}
-          </section>
+        {view.name === 'day' && (
+          <DayPage state={state} apply={apply} date={view.date} setDate={goDay} onOpenGoal={goGoal} />
         )}
-
-        <section className="list" aria-label="Prioritized daily task list">
-          <div className="list-head">
-            <h2>Prioritized Daily Task List</h2>
-            <span className="muted small">
-              {tasks.filter((t) => t.status === 'done').length} of {tasks.length} done
-            </span>
-          </div>
-
-          <div className="cols" aria-hidden="true">
-            <span className="c-tag" />
-            <span className="c-del" />
-            <span className="c-status">✓</span>
-            <span className="c-rank">ABC</span>
-            <span className="c-title" />
-          </div>
-
-          {tasks.length === 0 && (
-            <p className="empty">No tasks on this day yet. Add your first one below, starting with what you must do.</p>
-          )}
-
-          <ul className="rows">
-            {tasks.map((t, i) => {
-              const firstOfLetter = i === 0 || tasks[i - 1].priority !== t.priority;
-              return (
-                <li key={t.id} className={`row status-${t.status}${firstOfLetter && i > 0 ? ' letter-break' : ''}`}>
-                  <span className="c-tag" title={tagLabel(t.tag)}>
-                    {t.tag}
-                  </span>
-                  <span className="c-del">
-                    {t.delegatee && (
-                      <span className="initials" title={`Delegated to ${t.delegatee}`}>
-                        {t.delegatee}
-                      </span>
-                    )}
-                  </span>
-                  <button className="c-status status-btn" onClick={() => cycle(t)} aria-label={`${t.title}: ${statusLabel(t.status)}. Tap to change.`}>
-                    <StatusMark status={t.status} />
-                  </button>
-                  <span className={`c-rank rank prio-${t.priority}`}>
-                    {settings.prioritySymbols[t.priority]}
-                    {t.rank}
-                  </span>
-                  <button className="c-title title-btn" onClick={() => setOpenId(t.id)}>
-                    <span className="title-text">{t.title}</span>
-                    {t.history.length > 0 && t.status !== 'forwarded' && (
-                      <span className="fwd-count" title={`Forwarded ${t.history.length} times`}>
-                        ↪{t.history.length}
-                      </span>
-                    )}
-                    {t.status === 'forwarded' && t.forwardedTo && (
-                      <span className="fwd-to">to {new Date(t.forwardedTo + 'T00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
-                    )}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-
-          <form className="add" onSubmit={add}>
-            <div className="seg" role="radiogroup" aria-label="Priority">
-              {PRIORITIES.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  role="radio"
-                  aria-checked={newPriority === p}
-                  className={newPriority === p ? 'on' : ''}
-                  onClick={() => setNewPriority(p)}
-                  title={p === 'A' ? 'Must' : p === 'B' ? 'Should' : 'Want'}
-                >
-                  {settings.prioritySymbols[p]}
-                </button>
-              ))}
-            </div>
-            {settings.tags.length > 0 && (
-              <select id="new-tag" className="tag-select" value={newTag} onChange={(e) => setNewTag(e.target.value)} aria-label="Margin tag">
-                <option value="">Tag</option>
-                {settings.tags.map((t) => (
-                  <option key={t.letter} value={t.letter}>
-                    {t.letter} · {t.label}
-                  </option>
-                ))}
-              </select>
-            )}
-            <input
-              id="new-title"
-              ref={titleRef}
-              className="add-title"
-              placeholder="Add a task"
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              autoComplete="off"
-            />
-            <button className="btn primary" type="submit" disabled={!newTitle.trim()}>
-              Add
-            </button>
-          </form>
-        </section>
-
-        <section className="forward-all">
-          <div>
-            <h2>End of day</h2>
-            <p className="muted small">
-              {unfinished.length === 0
-                ? 'Nothing left to forward.'
-                : `${unfinished.length} unfinished ${unfinished.length === 1 ? 'task' : 'tasks'}. Each keeps its letter and goes to the top of it.`}
-            </p>
-          </div>
-          <div className="forward-controls">
-            <input id="forward-all-date" type="date" value={forwardTo} onChange={(e) => setForwardTo(e.target.value)} aria-label="Forward to date" />
-            <button className="btn primary" disabled={unfinished.length === 0 || !forwardTo || forwardTo === date} onClick={forwardAll}>
-              Forward unfinished →
-            </button>
-          </div>
-        </section>
+        {view.name === 'month' && (
+          <MonthPage
+            state={state}
+            apply={apply}
+            month={view.month}
+            setMonth={(m) => setView({ name: 'month', month: m })}
+            onOpenDay={goDay}
+          />
+        )}
+        {view.name === 'goals' && <GoalsPage state={state} apply={apply} focusGoalId={focusGoal} onGoTo={goDay} />}
       </main>
-
-      {toast && (
-        <div className="toast" role="status">
-          {toast}{' '}
-          <button className="link light" onClick={() => setDate(forwardTo)}>
-            View
-          </button>
-        </div>
-      )}
-
-      {openTask && (
-        <TaskDetail
-          key={openTask.id}
-          task={openTask}
-          state={state}
-          apply={apply}
-          onClose={() => setOpenId(null)}
-          onGoTo={(d) => {
-            setOpenId(null);
-            setDate(d);
-          }}
-        />
-      )}
 
       {showSettings && (
         <SettingsDialog

@@ -40,6 +40,38 @@ export interface Task {
   forwardedTo?: string;
   /** Every forward of this task, oldest first. */
   history: ForwardEntry[];
+  /** Goal this task works toward, if any. */
+  goalId?: string;
+  /** The goal step this task carries out, if any. */
+  stepId?: string;
+}
+
+export interface GoalStep {
+  id: string;
+  title: string;
+  done: boolean;
+}
+
+export interface Goal {
+  id: string;
+  title: string;
+  why?: string;
+  /** Day key the goal should be reached by. */
+  targetDate?: string;
+  /** Margin tag letter, e.g. "B" for Boeing. */
+  tag?: string;
+  steps: GoalStep[];
+  done: boolean;
+  createdAt: string;
+}
+
+export interface PlannerEvent {
+  id: string;
+  title: string;
+  date: string; // day key
+  time?: string; // "HH:MM"
+  notes?: string;
+  tag?: string;
 }
 
 export interface MarginTag {
@@ -59,6 +91,8 @@ export interface PlannerState {
   tasks: Task[];
   /** Status of each fixed daily task, by day then task name. */
   daily: Record<string, Record<string, Status>>;
+  goals: Goal[];
+  events: PlannerEvent[];
   settings: Settings;
 }
 
@@ -72,7 +106,7 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 export function emptyState(): PlannerState {
-  return { version: 1, tasks: [], daily: {}, settings: structuredClone(DEFAULT_SETTINGS) };
+  return { version: 1, tasks: [], daily: {}, goals: [], events: [], settings: structuredClone(DEFAULT_SETTINGS) };
 }
 
 let counter = 0;
@@ -113,6 +147,8 @@ export interface NewTaskInput {
   priority: Priority;
   tag?: string;
   notes?: string;
+  goalId?: string;
+  stepId?: string;
 }
 
 /** Adds a task at the bottom of its letter. */
@@ -135,6 +171,8 @@ export function addTask(state: PlannerState, input: NewTaskInput, now = new Date
     originDate: input.date,
     arrivedByForward: false,
     history: [],
+    goalId: input.goalId || undefined,
+    stepId: input.stepId || undefined,
   };
   return { ...state, tasks: [...state.tasks, task] };
 }
@@ -142,9 +180,17 @@ export function addTask(state: PlannerState, input: NewTaskInput, now = new Date
 export function updateTask(
   state: PlannerState,
   id: string,
-  patch: Partial<Pick<Task, 'title' | 'tag' | 'notes' | 'delegatee' | 'status'>>,
+  patch: Partial<Pick<Task, 'title' | 'tag' | 'notes' | 'delegatee' | 'status' | 'goalId' | 'stepId'>>,
 ): PlannerState {
-  return { ...state, tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)) };
+  const before = state.tasks.find((t) => t.id === id);
+  let next: PlannerState = { ...state, tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)) };
+  // Checking off a task that carries out a goal step also checks the step.
+  const after = next.tasks.find((t) => t.id === id);
+  if (before && after?.goalId && after.stepId && patch.status && patch.status !== before.status) {
+    if (patch.status === 'done') next = setStepDone(next, after.goalId, after.stepId, true);
+    else if (before.status === 'done') next = setStepDone(next, after.goalId, after.stepId, false);
+  }
+  return next;
 }
 
 /** Moves a task to another priority letter, at the bottom of that letter. */
@@ -263,4 +309,169 @@ export function setDailyStatus(state: PlannerState, date: string, name: string, 
 
 export function updateSettings(state: PlannerState, settings: Settings): PlannerState {
   return { ...state, settings };
+}
+
+// ---------- Goals ----------
+
+export interface NewGoalInput {
+  title: string;
+  why?: string;
+  targetDate?: string;
+  tag?: string;
+}
+
+export function addGoal(state: PlannerState, input: NewGoalInput, now = new Date()): PlannerState {
+  const title = input.title.trim();
+  if (!title) return state;
+  const goal: Goal = {
+    id: newId(),
+    title,
+    why: input.why?.trim() || undefined,
+    targetDate: input.targetDate || undefined,
+    tag: input.tag || undefined,
+    steps: [],
+    done: false,
+    createdAt: now.toISOString(),
+  };
+  return { ...state, goals: [...state.goals, goal] };
+}
+
+export function updateGoal(
+  state: PlannerState,
+  id: string,
+  patch: Partial<Pick<Goal, 'title' | 'why' | 'targetDate' | 'tag' | 'done'>>,
+): PlannerState {
+  return { ...state, goals: state.goals.map((g) => (g.id === id ? { ...g, ...patch } : g)) };
+}
+
+/** Deletes a goal. Tasks linked to it stay on their days without the link. */
+export function deleteGoal(state: PlannerState, id: string): PlannerState {
+  return {
+    ...state,
+    goals: state.goals.filter((g) => g.id !== id),
+    tasks: state.tasks.map((t) => (t.goalId === id ? { ...t, goalId: undefined, stepId: undefined } : t)),
+  };
+}
+
+export function addStep(state: PlannerState, goalId: string, title: string): PlannerState {
+  const clean = title.trim();
+  if (!clean) return state;
+  return {
+    ...state,
+    goals: state.goals.map((g) =>
+      g.id === goalId ? { ...g, steps: [...g.steps, { id: newId(), title: clean, done: false }] } : g,
+    ),
+  };
+}
+
+export function updateStep(state: PlannerState, goalId: string, stepId: string, title: string): PlannerState {
+  const clean = title.trim();
+  if (!clean) return state;
+  return {
+    ...state,
+    goals: state.goals.map((g) =>
+      g.id === goalId ? { ...g, steps: g.steps.map((s) => (s.id === stepId ? { ...s, title: clean } : s)) } : g,
+    ),
+  };
+}
+
+export function setStepDone(state: PlannerState, goalId: string, stepId: string, done: boolean): PlannerState {
+  return {
+    ...state,
+    goals: state.goals.map((g) =>
+      g.id === goalId ? { ...g, steps: g.steps.map((s) => (s.id === stepId ? { ...s, done } : s)) } : g,
+    ),
+  };
+}
+
+export function moveStep(state: PlannerState, goalId: string, stepId: string, delta: -1 | 1): PlannerState {
+  return {
+    ...state,
+    goals: state.goals.map((g) => {
+      if (g.id !== goalId) return g;
+      const i = g.steps.findIndex((s) => s.id === stepId);
+      const j = i + delta;
+      if (i < 0 || j < 0 || j >= g.steps.length) return g;
+      const steps = [...g.steps];
+      [steps[i], steps[j]] = [steps[j], steps[i]];
+      return { ...g, steps };
+    }),
+  };
+}
+
+export function deleteStep(state: PlannerState, goalId: string, stepId: string): PlannerState {
+  return {
+    ...state,
+    goals: state.goals.map((g) => (g.id === goalId ? { ...g, steps: g.steps.filter((s) => s.id !== stepId) } : g)),
+    tasks: state.tasks.map((t) => (t.stepId === stepId ? { ...t, stepId: undefined } : t)),
+  };
+}
+
+/** Puts a goal step on a day's task list, carrying the goal's margin tag. */
+export function scheduleStep(
+  state: PlannerState,
+  goalId: string,
+  stepId: string,
+  date: string,
+  priority: Priority,
+  now = new Date(),
+): PlannerState {
+  const goal = state.goals.find((g) => g.id === goalId);
+  const step = goal?.steps.find((s) => s.id === stepId);
+  if (!goal || !step) return state;
+  return addTask(state, { title: step.title, date, priority, tag: goal.tag, goalId, stepId }, now);
+}
+
+/** The latest copy of the task carrying out a step, if it has been scheduled. */
+export function taskForStep(state: PlannerState, stepId: string): Task | undefined {
+  return state.tasks
+    .filter((t) => t.stepId === stepId)
+    .sort((a, b) => b.date.localeCompare(a.date))[0];
+}
+
+export function goalProgress(goal: Goal): { done: number; total: number } {
+  return { done: goal.steps.filter((s) => s.done).length, total: goal.steps.length };
+}
+
+// ---------- Events (monthly calendar) ----------
+
+export interface NewEventInput {
+  title: string;
+  date: string;
+  time?: string;
+  notes?: string;
+  tag?: string;
+}
+
+export function addEvent(state: PlannerState, input: NewEventInput): PlannerState {
+  const title = input.title.trim();
+  if (!title || !input.date) return state;
+  const ev: PlannerEvent = {
+    id: newId(),
+    title,
+    date: input.date,
+    time: input.time || undefined,
+    notes: input.notes?.trim() || undefined,
+    tag: input.tag || undefined,
+  };
+  return { ...state, events: [...state.events, ev] };
+}
+
+export function updateEvent(
+  state: PlannerState,
+  id: string,
+  patch: Partial<Pick<PlannerEvent, 'title' | 'date' | 'time' | 'notes' | 'tag'>>,
+): PlannerState {
+  return { ...state, events: state.events.map((e) => (e.id === id ? { ...e, ...patch } : e)) };
+}
+
+export function deleteEvent(state: PlannerState, id: string): PlannerState {
+  return { ...state, events: state.events.filter((e) => e.id !== id) };
+}
+
+/** Events on a day, untimed first, then by time. */
+export function eventsForDay(state: PlannerState, date: string): PlannerEvent[] {
+  return state.events
+    .filter((e) => e.date === date)
+    .sort((a, b) => (a.time ?? '').localeCompare(b.time ?? '') || a.title.localeCompare(b.title));
 }
