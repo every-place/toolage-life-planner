@@ -16,10 +16,14 @@ Part of the [Toolage Works](https://www.toolageworks.com) family of apps.
 - Forwarding: a forwarded task keeps its letter and goes to the top of that letter on the
   new day. It keeps its creation date, and every forward is recorded in its history.
 - "Forward unfinished" at the end of the day
+- Goals with ordered steps, a margin tag (B, E, or none) and a target date, filterable by tag
+- Put a goal step on a day as a task; it carries the goal's tag, and checking the task checks the step
+- Link any task to a goal from the task list or its detail sheet
+- Month calendar for future events; each event shows under Appointments on its day's page
 - Settings for daily tasks, tags and priority symbols (use a ♥ if you like), plus backup and restore
 
-Data is stored in the browser for now. Sync between phone and computer, goals,
-the monthly calendar and Google Calendar/Tasks sync are next.
+Data is stored in the browser for now. Sync between phone and computer and
+Google Calendar/Tasks sync are next.
 
 ## Develop
 

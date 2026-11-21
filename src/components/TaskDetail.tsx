@@ -22,9 +22,10 @@ interface Props {
   apply: (fn: (s: PlannerState) => PlannerState) => void;
   onClose: () => void;
   onGoTo: (date: string) => void;
+  onOpenGoal: (goalId: string) => void;
 }
 
-export function TaskDetail({ task, state, apply, onClose, onGoTo }: Props) {
+export function TaskDetail({ task, state, apply, onClose, onGoTo, onOpenGoal }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const [title, setTitle] = useState(task.title);
   const [notes, setNotes] = useState(task.notes ?? '');
@@ -60,6 +61,7 @@ export function TaskDetail({ task, state, apply, onClose, onGoTo }: Props) {
   };
 
   const chain = chainOf(state, task.chainId);
+  const goalStep = state.goals.find((g) => g.id === task.goalId)?.steps.find((st) => st.id === task.stepId);
   const unfinished = isUnfinished(task);
 
   return (
@@ -118,6 +120,35 @@ export function TaskDetail({ task, state, apply, onClose, onGoTo }: Props) {
             />
           </label>
         </div>
+
+        <div className="field-row">
+          <label className="field">
+            <span>Goal</span>
+            <select
+              id="detail-goal"
+              value={task.goalId ?? ''}
+              onChange={(e) =>
+                apply((s) => updateTask(s, task.id, { goalId: e.target.value || undefined, stepId: undefined }))
+              }
+            >
+              <option value="">None</option>
+              {state.goals
+                .filter((g) => !g.done || g.id === task.goalId)
+                .map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.tag ? `${g.tag} · ` : ''}
+                    {g.title}
+                  </option>
+                ))}
+            </select>
+          </label>
+          {task.goalId && (
+            <button type="button" className="btn ghost align-end" onClick={() => onOpenGoal(task.goalId!)}>
+              Open goal
+            </button>
+          )}
+        </div>
+        {goalStep && <p className="muted small note">Carries out the step “{goalStep.title}”. Checking this task checks the step.</p>}
 
         <div className="btn-row">
           <button type="button" className="btn ghost" onClick={() => apply((s) => moveTask(s, task.id, -1))}>
