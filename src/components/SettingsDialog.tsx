@@ -9,26 +9,23 @@ interface Props {
   onClose: () => void;
 }
 
-function tagsToText(tags: MarginTag[]) {
-  return tags.map((t) => `${t.letter} = ${t.label}`).join('\n');
-}
-
-function textToTags(text: string): MarginTag[] {
-  return text
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [letter, ...rest] = line.split('=');
-      return { letter: letter.trim().slice(0, 2).toUpperCase(), label: rest.join('=').trim() || letter.trim() };
-    })
-    .filter((t) => t.letter);
+/** Cleans the tag rows: trims, upper-cases letters, drops blanks and repeated letters. */
+function cleanTags(rows: MarginTag[]): MarginTag[] {
+  const seen = new Set<string>();
+  const out: MarginTag[] = [];
+  for (const r of rows) {
+    const letter = r.letter.trim().toUpperCase().slice(0, 2);
+    if (!letter || seen.has(letter)) continue;
+    seen.add(letter);
+    out.push({ letter, label: r.label.trim() || letter });
+  }
+  return out;
 }
 
 export function SettingsDialog({ state, onSave, onImport, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const [daily, setDaily] = useState(state.settings.dailyTasks.join('\n'));
-  const [tags, setTags] = useState(tagsToText(state.settings.tags));
+  const [tags, setTags] = useState<MarginTag[]>(() => state.settings.tags.map((t) => ({ ...t })));
   const [symbols, setSymbols] = useState(state.settings.prioritySymbols);
   const [message, setMessage] = useState('');
 
@@ -40,7 +37,7 @@ export function SettingsDialog({ state, onSave, onImport, onClose }: Props) {
   const save = () => {
     onSave({
       dailyTasks: daily.split('\n').map((s) => s.trim()).filter(Boolean),
-      tags: textToTags(tags),
+      tags: cleanTags(tags),
       prioritySymbols: {
         A: symbols.A.trim() || 'A',
         B: symbols.B.trim() || 'B',
@@ -82,10 +79,41 @@ export function SettingsDialog({ state, onSave, onImport, onClose }: Props) {
           <textarea id="set-daily" rows={6} value={daily} onChange={(e) => setDaily(e.target.value)} />
         </label>
 
-        <label className="field">
-          <span>Margin tags, one per line, like "B = Boeing"</span>
-          <textarea id="set-tags" rows={3} value={tags} onChange={(e) => setTags(e.target.value)} />
-        </label>
+        <fieldset className="field" id="set-tags">
+          <legend>Margin letters</legend>
+          <p className="muted small">The letter you write in the left margin and what it stands for.</p>
+          <div className="tag-rows">
+            {tags.map((t, i) => (
+              <div className="tag-row" key={i}>
+                <input
+                  id={`set-tag-letter-${i}`}
+                  className="tag-letter"
+                  value={t.letter}
+                  maxLength={2}
+                  aria-label="Letter"
+                  onChange={(e) => setTags(tags.map((x, j) => (j === i ? { ...x, letter: e.target.value } : x)))}
+                />
+                <input
+                  id={`set-tag-label-${i}`}
+                  className="tag-label"
+                  value={t.label}
+                  placeholder="What it stands for"
+                  aria-label="Stands for"
+                  onChange={(e) => setTags(tags.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))}
+                />
+                <button type="button" className="mini" aria-label={`Remove ${t.letter || 'tag'}`} onClick={() => setTags(tags.filter((_, j) => j !== i))}>
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+          <div>
+            <button type="button" className="btn ghost small-btn" onClick={() => setTags([...tags, { letter: '', label: '' }])}>
+              + Add letter
+            </button>
+          </div>
+          <p className="muted small">Removing a letter here keeps it on tasks that already have it.</p>
+        </fieldset>
 
         <fieldset className="field">
           <legend>Priority symbols</legend>

@@ -1,5 +1,7 @@
+import { TagSelect } from './TagSelect';
 import { useEffect, useState } from 'react';
 import { formatShort, today } from '../lib/dates';
+import { PaperToggle } from './PaperToggle';
 import {
   PRIORITIES,
   addGoal,
@@ -88,14 +90,7 @@ export function GoalsPage({ state, apply, focusGoalId, onGoTo }: Props) {
           onChange={(e) => setTitle(e.target.value)}
         />
         {settings.tags.length > 0 && (
-          <select id="goal-tag" className="tag-select" value={tag} onChange={(e) => setTag(e.target.value)} aria-label="Margin tag">
-            <option value="">Tag</option>
-            {settings.tags.map((t) => (
-              <option key={t.letter} value={t.letter}>
-                {t.letter} · {t.label}
-              </option>
-            ))}
-          </select>
+          <TagSelect id="goal-tag" className="tag-select" value={tag} onChange={setTag} tags={settings.tags} emptyLabel="Tag" />
         )}
         <input id="goal-target" type="date" className="date-input" value={target} onChange={(e) => setTarget(e.target.value)} aria-label="Target date" />
         <button className="btn primary" type="submit" disabled={!title.trim()}>
@@ -172,6 +167,7 @@ function GoalCard({
 
   return (
     <li id={`goal-${goal.id}`} className={`card goal${goal.done ? ' goal-done' : ''}`}>
+      <div className="goal-head-wrap">
       <button className="goal-head" onClick={onToggle} aria-expanded={open}>
         <span className="c-tag goal-tag" title={tagLabel}>
           {goal.tag ?? ''}
@@ -193,6 +189,12 @@ function GoalCard({
           {open ? '▾' : '▸'}
         </span>
       </button>
+        <PaperToggle
+          on={!!goal.onPaper}
+          label={goal.title}
+          onChange={(on) => apply((s) => updateGoal(s, goal.id, { onPaper: on }))}
+        />
+      </div>
 
       {open && (
         <div className="goal-body">
@@ -297,14 +299,7 @@ function GoalEditor({ goal, state, apply, onDone }: { goal: Goal; state: Planner
       <div className="field-row">
         <label className="field">
           <span>Margin tag</span>
-          <select id={`edit-goal-tag-${goal.id}`} value={tag} onChange={(e) => setTag(e.target.value)}>
-            <option value="">None</option>
-            {state.settings.tags.map((t) => (
-              <option key={t.letter} value={t.letter}>
-                {t.letter} · {t.label}
-              </option>
-            ))}
-          </select>
+          <TagSelect id={`edit-goal-tag-${goal.id}`} value={tag} onChange={setTag} tags={state.settings.tags} />
         </label>
         <label className="field">
           <span>Target date</span>

@@ -1,3 +1,4 @@
+import { TagSelect } from './TagSelect';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { addDays, dayOfYear, daysLeftInYear, formatLong, formatTime, today } from '../lib/dates';
 import {
@@ -10,6 +11,7 @@ import {
   nextStatus,
   setDailyStatus,
   tasksForDay,
+  updateEvent,
   updateTask,
   type PlannerEvent,
   type PlannerState,
@@ -19,6 +21,7 @@ import {
 import { StatusMark, statusLabel } from './StatusMark';
 import { TaskDetail } from './TaskDetail';
 import { EventDialog } from './EventDialog';
+import { PaperToggle } from './PaperToggle';
 
 interface Props {
   state: PlannerState;
@@ -51,6 +54,7 @@ export function DayPage({ state, apply, date, setDate, onOpenGoal }: Props) {
   const tasks = useMemo(() => tasksForDay(state, date), [state, date]);
   const events = useMemo(() => eventsForDay(state, date), [state, date]);
   const unfinished = tasks.filter(isUnfinished);
+  const notOnPaper = tasks.filter((t) => t.status !== 'forwarded' && !t.onPaper).length + events.filter((e) => !e.onPaper).length;
   const openTask = openId ? state.tasks.find((t) => t.id === openId) : undefined;
   const isToday = date === today();
   const activeGoals = state.goals.filter((g) => !g.done);
@@ -149,12 +153,17 @@ export function DayPage({ state, apply, date, setDate, onOpenGoal }: Props) {
         ) : (
           <ul className="event-list">
             {events.map((ev) => (
-              <li key={ev.id}>
+              <li key={ev.id} className="event-row">
                 <button className="event-btn" onClick={() => setEventEdit(ev)}>
                   <span className="event-time">{ev.time ? formatTime(ev.time) : 'All day'}</span>
                   {ev.tag && <span className="c-tag" title={tagLabel(ev.tag)}>{ev.tag}</span>}
                   <span className="event-title">{ev.title}</span>
                 </button>
+                <PaperToggle
+                  on={!!ev.onPaper}
+                  label={ev.title}
+                  onChange={(on) => apply((s) => updateEvent(s, ev.id, { onPaper: on }))}
+                />
               </li>
             ))}
           </ul>
@@ -166,6 +175,7 @@ export function DayPage({ state, apply, date, setDate, onOpenGoal }: Props) {
           <h2>Prioritized Daily Task List</h2>
           <span className="muted small">
             {tasks.filter((t) => t.status === 'done').length} of {tasks.length} done
+            {notOnPaper > 0 && ` · ${notOnPaper} not on paper yet`}
           </span>
         </div>
 
@@ -175,6 +185,7 @@ export function DayPage({ state, apply, date, setDate, onOpenGoal }: Props) {
           <span className="c-status">✓</span>
           <span className="c-rank">ABC</span>
           <span className="c-title" />
+          <span className="c-paper" title="On paper">✎</span>
         </div>
 
         {tasks.length === 0 && (
@@ -225,6 +236,15 @@ export function DayPage({ state, apply, date, setDate, onOpenGoal }: Props) {
                     </span>
                   )}
                 </button>
+                {t.status === 'forwarded' ? (
+                  <span />
+                ) : (
+                  <PaperToggle
+                    on={!!t.onPaper}
+                    label={t.title}
+                    onChange={(on) => apply((s) => updateTask(s, t.id, { onPaper: on }))}
+                  />
+                )}
               </li>
             );
           })}
@@ -247,20 +267,7 @@ export function DayPage({ state, apply, date, setDate, onOpenGoal }: Props) {
             ))}
           </div>
           {settings.tags.length > 0 && (
-            <select
-              id="new-tag"
-              className="tag-select"
-              value={newTag}
-              onChange={(e) => setNewTag(e.target.value)}
-              aria-label="Margin tag"
-            >
-              <option value="">Tag</option>
-              {settings.tags.map((t) => (
-                <option key={t.letter} value={t.letter}>
-                  {t.letter} · {t.label}
-                </option>
-              ))}
-            </select>
+            <TagSelect id="new-tag" className="tag-select" value={newTag} onChange={setNewTag} tags={settings.tags} emptyLabel="Tag" />
           )}
           {activeGoals.length > 0 && (
             <select

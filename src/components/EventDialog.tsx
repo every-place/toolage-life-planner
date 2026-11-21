@@ -1,3 +1,4 @@
+import { TagSelect } from './TagSelect';
 import { useEffect, useRef, useState } from 'react';
 import { addEvent, deleteEvent, updateEvent, type PlannerEvent, type PlannerState } from '../lib/model';
 
@@ -65,14 +66,7 @@ export function EventDialog({ state, apply, event, defaultDate, onClose }: Props
           {state.settings.tags.length > 0 && (
             <label className="field">
               <span>Margin tag</span>
-              <select id="event-tag" value={tag} onChange={(e) => setTag(e.target.value)}>
-                <option value="">None</option>
-                {state.settings.tags.map((t) => (
-                  <option key={t.letter} value={t.letter}>
-                    {t.letter} · {t.label}
-                  </option>
-                ))}
-              </select>
+              <TagSelect id="event-tag" value={tag} onChange={setTag} tags={state.settings.tags} />
             </label>
           )}
         </div>
