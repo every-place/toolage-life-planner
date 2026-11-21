@@ -44,6 +44,8 @@ export interface Task {
   goalId?: string;
   /** The goal step this task carries out, if any. */
   stepId?: string;
+  /** Written in the paper planner on this day. */
+  onPaper?: boolean;
 }
 
 export interface GoalStep {
@@ -63,6 +65,8 @@ export interface Goal {
   steps: GoalStep[];
   done: boolean;
   createdAt: string;
+  /** Written in the paper planner. */
+  onPaper?: boolean;
 }
 
 export interface PlannerEvent {
@@ -72,6 +76,8 @@ export interface PlannerEvent {
   time?: string; // "HH:MM"
   notes?: string;
   tag?: string;
+  /** Written in the paper planner (month tab or day page). */
+  onPaper?: boolean;
 }
 
 export interface MarginTag {
@@ -180,7 +186,7 @@ export function addTask(state: PlannerState, input: NewTaskInput, now = new Date
 export function updateTask(
   state: PlannerState,
   id: string,
-  patch: Partial<Pick<Task, 'title' | 'tag' | 'notes' | 'delegatee' | 'status' | 'goalId' | 'stepId'>>,
+  patch: Partial<Pick<Task, 'title' | 'tag' | 'notes' | 'delegatee' | 'status' | 'goalId' | 'stepId' | 'onPaper'>>,
 ): PlannerState {
   const before = state.tasks.find((t) => t.id === id);
   let next: PlannerState = { ...state, tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)) };
@@ -272,6 +278,8 @@ export function forwardTask(state: PlannerState, id: string, toDate: string, now
     status: task.status === 'inwork' ? 'inwork' : 'open',
     arrivedByForward: true,
     forwardedTo: undefined,
+    // The new day's paper page doesn't have it yet.
+    onPaper: false,
     history: [...task.history, entry],
   };
 
@@ -339,7 +347,7 @@ export function addGoal(state: PlannerState, input: NewGoalInput, now = new Date
 export function updateGoal(
   state: PlannerState,
   id: string,
-  patch: Partial<Pick<Goal, 'title' | 'why' | 'targetDate' | 'tag' | 'done'>>,
+  patch: Partial<Pick<Goal, 'title' | 'why' | 'targetDate' | 'tag' | 'done' | 'onPaper'>>,
 ): PlannerState {
   return { ...state, goals: state.goals.map((g) => (g.id === id ? { ...g, ...patch } : g)) };
 }
@@ -460,9 +468,18 @@ export function addEvent(state: PlannerState, input: NewEventInput): PlannerStat
 export function updateEvent(
   state: PlannerState,
   id: string,
-  patch: Partial<Pick<PlannerEvent, 'title' | 'date' | 'time' | 'notes' | 'tag'>>,
+  patch: Partial<Pick<PlannerEvent, 'title' | 'date' | 'time' | 'notes' | 'tag' | 'onPaper'>>,
 ): PlannerState {
-  return { ...state, events: state.events.map((e) => (e.id === id ? { ...e, ...patch } : e)) };
+  return {
+    ...state,
+    events: state.events.map((e) => {
+      if (e.id !== id) return e;
+      const next = { ...e, ...patch };
+      // Moving an event to another day means the paper copy is out of date.
+      if (patch.date && patch.date !== e.date && patch.onPaper === undefined) next.onPaper = false;
+      return next;
+    }),
+  };
 }
 
 export function deleteEvent(state: PlannerState, id: string): PlannerState {

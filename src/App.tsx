@@ -6,6 +6,7 @@ import { DayPage } from './components/DayPage';
 import { MonthPage } from './components/MonthPage';
 import { GoalsPage } from './components/GoalsPage';
 import { SettingsDialog } from './components/SettingsDialog';
+import { onOpenSettings } from './lib/ui';
 
 type View = { name: 'day'; date: string } | { name: 'month'; month: string } | { name: 'goals' };
 
@@ -31,6 +32,8 @@ export default function App() {
   const [lastDay, setLastDay] = useState(view.name === 'day' ? view.date : today());
   const [focusGoal, setFocusGoal] = useState<string | undefined>();
   const [showSettings, setShowSettings] = useState(false);
+
+  useEffect(() => onOpenSettings(() => setShowSettings(true)), []);
 
   useEffect(() => {
     const onHash = () => setView(viewFromHash());

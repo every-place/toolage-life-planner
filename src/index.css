@@ -561,3 +561,37 @@ button { cursor: pointer; }
   .cell-dots { display: flex; }
   .weekdays span { text-align: center; padding: 8px 0; font-size: 10px; letter-spacing: 0.02em; }
 }
+
+/* ---------- On paper ---------- */
+.paper {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1.5px dashed var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--done);
+  padding: 0;
+}
+.paper:hover { border-color: var(--cyan); color: var(--cyan-ink); }
+.paper.on { border: 1.5px solid var(--cyan); background: var(--wash); color: var(--cyan-ink); }
+.row { grid-template-columns: 22px 40px 40px 46px minmax(0, 1fr) 36px; }
+.cols { grid-template-columns: 22px 40px 40px 46px minmax(0, 1fr) 36px; }
+.cols .c-paper { text-align: center; }
+@media (max-width: 480px) {
+  .cols, .row { grid-template-columns: 18px 34px 38px 40px minmax(0, 1fr) 34px; }
+}
+.event-row { display: flex; align-items: center; gap: 4px; padding-right: 12px; border-top: 1px solid var(--rule); }
+.event-row .event-btn { border-top: 0; flex: 1; min-width: 0; }
+.paper-note { display: inline-flex; align-items: center; gap: 6px; }
+.goal-head-wrap { display: flex; align-items: center; gap: 6px; padding-right: 12px; }
+.goal-head-wrap .goal-head { flex: 1; min-width: 0; }
+
+/* ---------- Tag editor ---------- */
+.tag-rows { display: grid; gap: 6px; }
+.tag-row { display: flex; gap: 6px; align-items: center; }
+.tag-row .tag-letter { width: 56px; flex: none; text-align: center; font-family: var(--display); font-weight: 900; text-transform: uppercase; }
+.tag-row .tag-label { flex: 1; min-width: 0; }
+.tag-row input { height: 38px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--paper); padding: 0 10px; }

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { addMonths, formatLong, formatMonth, formatTime, fromDayKey, monthGrid, monthOf, today } from '../lib/dates';
-import { eventsForDay, isUnfinished, type PlannerEvent, type PlannerState } from '../lib/model';
+import { eventsForDay, isUnfinished, updateEvent, type PlannerEvent, type PlannerState } from '../lib/model';
+import { PaperToggle } from './PaperToggle';
 import { EventDialog } from './EventDialog';
 
 interface Props {
@@ -110,12 +111,17 @@ export function MonthPage({ state, apply, month, setMonth, onOpenDay }: Props) {
         ) : (
           <ul className="event-list">
             {selEvents.map((ev) => (
-              <li key={ev.id}>
+              <li key={ev.id} className="event-row">
                 <button className="event-btn" onClick={() => setEventEdit(ev)}>
                   <span className="event-time">{ev.time ? formatTime(ev.time) : 'All day'}</span>
                   {ev.tag && <span className="c-tag">{ev.tag}</span>}
                   <span className="event-title">{ev.title}</span>
                 </button>
+                <PaperToggle
+                  on={!!ev.onPaper}
+                  label={ev.title}
+                  onChange={(on) => apply((s) => updateEvent(s, ev.id, { onPaper: on }))}
+                />
               </li>
             ))}
           </ul>

@@ -1,3 +1,4 @@
+import { TagSelect } from './TagSelect';
 import { useEffect, useRef, useState } from 'react';
 import { addDays, formatLong, formatShort } from '../lib/dates';
 import {
@@ -95,18 +96,7 @@ export function TaskDetail({ task, state, apply, onClose, onGoTo, onOpenGoal }: 
           </label>
           <label className="field">
             <span>Margin tag</span>
-            <select
-              id="detail-tag"
-              value={task.tag ?? ''}
-              onChange={(e) => apply((s) => updateTask(s, task.id, { tag: e.target.value || undefined }))}
-            >
-              <option value="">None</option>
-              {settings.tags.map((t) => (
-                <option key={t.letter} value={t.letter}>
-                  {t.letter} · {t.label}
-                </option>
-              ))}
-            </select>
+            <TagSelect id="detail-tag" value={task.tag ?? ''} onChange={(v) => apply((s) => updateTask(s, task.id, { tag: v || undefined }))} tags={settings.tags} />
           </label>
           <label className="field narrow">
             <span>Delegated to</span>
@@ -158,6 +148,16 @@ export function TaskDetail({ task, state, apply, onClose, onGoTo, onOpenGoal }: 
             Move down
           </button>
         </div>
+
+        <label className="check small paper-note">
+          <input
+            id="detail-on-paper"
+            type="checkbox"
+            checked={!!task.onPaper}
+            onChange={(e) => apply((s) => updateTask(s, task.id, { onPaper: e.target.checked }))}
+          />
+          On paper (written in my paper planner on this day)
+        </label>
 
         <label className="field">
           <span>Notes</span>

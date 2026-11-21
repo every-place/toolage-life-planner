@@ -20,6 +20,8 @@ Part of the [Toolage Works](https://www.toolageworks.com) family of apps.
 - Put a goal step on a day as a task; it carries the goal's tag, and checking the task checks the step
 - Link any task to a goal from the task list or its detail sheet
 - Month calendar for future events; each event shows under Appointments on its day's page
+- On paper: a pen mark on every task, event and goal shows it's written in the paper planner; forwarded tasks and moved events reset it
+- Margin letters editor in Settings, also reachable from any tag dropdown (Edit letters…)
 - Settings for daily tasks, tags and priority symbols (use a ♥ if you like), plus backup and restore
 
 Data is stored in the browser for now. Sync between phone and computer and
