@@ -1,0 +1,266 @@
+// Core planner data and the pure functions that change it.
+// Every function takes a PlannerState and returns a new one, so the
+// storage layer (local now, cloud sync later) can stay separate.
+
+export type Priority = 'A' | 'B' | 'C';
+export const PRIORITIES: Priority[] = ['A', 'B', 'C'];
+
+/** open = no mark yet; inwork = dot; done = check; forwarded = right arrow. */
+export type Status = 'open' | 'inwork' | 'done' | 'forwarded';
+
+export interface ForwardEntry {
+  from: string; // day key
+  to: string; // day key
+  fromRank: string; // e.g. "B2"
+  toRank: string; // e.g. "B1"
+  at: string; // ISO timestamp of the move
+}
+
+export interface Task {
+  id: string;
+  /** Shared by every copy of a task as it is forwarded from day to day. */
+  chainId: string;
+  title: string;
+  date: string; // day key this copy sits on
+  priority: Priority;
+  rank: number; // 1-based order within its priority letter on that day
+  status: Status;
+  /** Initials of the person the task is delegated to. */
+  delegatee?: string;
+  /** Margin tag letter, e.g. "B" for Boeing. */
+  tag?: string;
+  notes?: string;
+  /** When the task was first written down. Kept through every forward. */
+  createdAt: string;
+  /** The day the task was first planned for. */
+  originDate: string;
+  /** True when this copy arrived on its day by being forwarded. */
+  arrivedByForward: boolean;
+  /** For a copy left behind with status "forwarded": where it went. */
+  forwardedTo?: string;
+  /** Every forward of this task, oldest first. */
+  history: ForwardEntry[];
+}
+
+export interface MarginTag {
+  letter: string;
+  label: string;
+}
+
+export interface Settings {
+  dailyTasks: string[];
+  tags: MarginTag[];
+  /** What to show for each priority letter, e.g. a heart for A. */
+  prioritySymbols: Record<Priority, string>;
+}
+
+export interface PlannerState {
+  version: 1;
+  tasks: Task[];
+  /** Status of each fixed daily task, by day then task name. */
+  daily: Record<string, Record<string, Status>>;
+  settings: Settings;
+}
+
+export const DEFAULT_SETTINGS: Settings = {
+  dailyTasks: ['Pray', 'Read', 'Plan', 'Record', 'Prepare', 'Relax'],
+  tags: [
+    { letter: 'B', label: 'Boeing' },
+    { letter: 'E', label: 'EveryPlace, LLC' },
+  ],
+  prioritySymbols: { A: 'A', B: 'B', C: 'C' },
+};
+
+export function emptyState(): PlannerState {
+  return { version: 1, tasks: [], daily: {}, settings: structuredClone(DEFAULT_SETTINGS) };
+}
+
+let counter = 0;
+export function newId(): string {
+  counter += 1;
+  return `${Date.now().toString(36)}-${counter.toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+export function rankLabel(t: Pick<Task, 'priority' | 'rank'>): string {
+  return `${t.priority}${t.rank}`;
+}
+
+const PRIORITY_ORDER: Record<Priority, number> = { A: 0, B: 1, C: 2 };
+
+/** Tasks on a day in list order: A1, A2, B1, B2, B3, C1. */
+export function tasksForDay(state: PlannerState, date: string): Task[] {
+  return state.tasks
+    .filter((t) => t.date === date)
+    .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority] || a.rank - b.rank);
+}
+
+function lettersOn(tasks: Task[], date: string, priority: Priority): Task[] {
+  return tasks
+    .filter((t) => t.date === date && t.priority === priority)
+    .sort((a, b) => a.rank - b.rank);
+}
+
+/** Renumber one letter on one day to 1..n, keeping the current order. */
+function renumber(tasks: Task[], date: string, priority: Priority): Task[] {
+  const ordered = lettersOn(tasks, date, priority);
+  const newRank = new Map(ordered.map((t, i) => [t.id, i + 1]));
+  return tasks.map((t) => (newRank.has(t.id) ? { ...t, rank: newRank.get(t.id)! } : t));
+}
+
+export interface NewTaskInput {
+  title: string;
+  date: string;
+  priority: Priority;
+  tag?: string;
+  notes?: string;
+}
+
+/** Adds a task at the bottom of its letter. */
+export function addTask(state: PlannerState, input: NewTaskInput, now = new Date()): PlannerState {
+  const title = input.title.trim();
+  if (!title) return state;
+  const rank = lettersOn(state.tasks, input.date, input.priority).length + 1;
+  const id = newId();
+  const task: Task = {
+    id,
+    chainId: id,
+    title,
+    date: input.date,
+    priority: input.priority,
+    rank,
+    status: 'open',
+    tag: input.tag || undefined,
+    notes: input.notes || undefined,
+    createdAt: now.toISOString(),
+    originDate: input.date,
+    arrivedByForward: false,
+    history: [],
+  };
+  return { ...state, tasks: [...state.tasks, task] };
+}
+
+export function updateTask(
+  state: PlannerState,
+  id: string,
+  patch: Partial<Pick<Task, 'title' | 'tag' | 'notes' | 'delegatee' | 'status'>>,
+): PlannerState {
+  return { ...state, tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)) };
+}
+
+/** Moves a task to another priority letter, at the bottom of that letter. */
+export function changePriority(state: PlannerState, id: string, priority: Priority): PlannerState {
+  const task = state.tasks.find((t) => t.id === id);
+  if (!task || task.priority === priority) return state;
+  const rank = lettersOn(state.tasks, task.date, priority).length + 1;
+  let tasks = state.tasks.map((t) => (t.id === id ? { ...t, priority, rank } : t));
+  tasks = renumber(tasks, task.date, task.priority);
+  return { ...state, tasks };
+}
+
+/** Moves a task up (-1) or down (+1) within its letter. */
+export function moveTask(state: PlannerState, id: string, delta: -1 | 1): PlannerState {
+  const task = state.tasks.find((t) => t.id === id);
+  if (!task) return state;
+  const ordered = lettersOn(state.tasks, task.date, task.priority);
+  const i = ordered.findIndex((t) => t.id === id);
+  const j = i + delta;
+  if (j < 0 || j >= ordered.length) return state;
+  const other = ordered[j];
+  const tasks = state.tasks.map((t) => {
+    if (t.id === task.id) return { ...t, rank: other.rank };
+    if (t.id === other.id) return { ...t, rank: task.rank };
+    return t;
+  });
+  return { ...state, tasks };
+}
+
+export function deleteTask(state: PlannerState, id: string): PlannerState {
+  const task = state.tasks.find((t) => t.id === id);
+  if (!task) return state;
+  let tasks = state.tasks.filter((t) => t.id !== id);
+  tasks = renumber(tasks, task.date, task.priority);
+  return { ...state, tasks };
+}
+
+/** Next status when the status mark is tapped: blank, dot, check, blank. */
+export function nextStatus(s: Status): Status {
+  if (s === 'open') return 'inwork';
+  if (s === 'inwork') return 'done';
+  return 'open';
+}
+
+export function isUnfinished(t: Task): boolean {
+  return t.status === 'open' || t.status === 'inwork';
+}
+
+/**
+ * Forwards one task to another day.
+ *
+ * The copy on the old day keeps its place and gets the forwarded arrow.
+ * A new copy goes on the new day with the same priority letter, placed at
+ * the top of that letter after any tasks already forwarded there, so the
+ * first forwarded task becomes 1, the second becomes 2, and tasks planned
+ * there earlier shift down. Creation date and forward history carry over.
+ */
+export function forwardTask(state: PlannerState, id: string, toDate: string, now = new Date()): PlannerState {
+  const task = state.tasks.find((t) => t.id === id);
+  if (!task || !isUnfinished(task) || toDate === task.date) return state;
+
+  const target = lettersOn(state.tasks, toDate, task.priority);
+  const forwardedAhead = target.filter((t) => t.arrivedByForward).length;
+  const newRank = forwardedAhead + 1;
+
+  const entry: ForwardEntry = {
+    from: task.date,
+    to: toDate,
+    fromRank: rankLabel(task),
+    toRank: `${task.priority}${newRank}`,
+    at: now.toISOString(),
+  };
+
+  const copy: Task = {
+    ...task,
+    id: newId(),
+    date: toDate,
+    rank: newRank,
+    status: task.status === 'inwork' ? 'inwork' : 'open',
+    arrivedByForward: true,
+    forwardedTo: undefined,
+    history: [...task.history, entry],
+  };
+
+  const tasks = state.tasks.map((t) => {
+    if (t.id === task.id) return { ...t, status: 'forwarded' as Status, forwardedTo: toDate, history: copy.history };
+    if (t.date === toDate && t.priority === task.priority && t.rank >= newRank) return { ...t, rank: t.rank + 1 };
+    return t;
+  });
+  return { ...state, tasks: [...tasks, copy] };
+}
+
+/** Forwards every unfinished task on a day, keeping their list order. */
+export function forwardUnfinished(state: PlannerState, fromDate: string, toDate: string, now = new Date()): PlannerState {
+  const ids = tasksForDay(state, fromDate)
+    .filter(isUnfinished)
+    .map((t) => t.id);
+  return ids.reduce((s, id) => forwardTask(s, id, toDate, now), state);
+}
+
+/** All copies of a task across days, oldest first. */
+export function chainOf(state: PlannerState, chainId: string): Task[] {
+  return state.tasks.filter((t) => t.chainId === chainId).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export function dailyStatus(state: PlannerState, date: string, name: string): Status {
+  return state.daily[date]?.[name] ?? 'open';
+}
+
+export function setDailyStatus(state: PlannerState, date: string, name: string, status: Status): PlannerState {
+  return {
+    ...state,
+    daily: { ...state.daily, [date]: { ...state.daily[date], [name]: status } },
+  };
+}
+
+export function updateSettings(state: PlannerState, settings: Settings): PlannerState {
+  return { ...state, settings };
+}
