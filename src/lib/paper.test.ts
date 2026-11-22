@@ -22,4 +22,11 @@ describe('on paper', () => {
     s = updateEvent(s, id, { date: D2 });
     expect(s.events[0].onPaper).toBe(false);
   });
+
+  it('forwarded copies keep the note photos', () => {
+    let s = addTask(emptyState(), { title: 'Meeting notes', date: D1, priority: 'B' });
+    s = updateTask(s, s.tasks[0].id, { photos: ['ph-1', 'ph-2'] });
+    s = forwardTask(s, s.tasks[0].id, D2);
+    expect(tasksForDay(s, D2)[0].photos).toEqual(['ph-1', 'ph-2']);
+  });
 });

@@ -224,6 +224,11 @@ export function DayPage({ state, apply, date, setDate, onOpenGoal }: Props) {
                     <span className="title-text">{t.title}</span>
                     {gTitle && <span className="goal-line">◎ {gTitle}</span>}
                   </span>
+                  {t.photos && t.photos.length > 0 && (
+                    <span className="fwd-count" title={`${t.photos.length} photo${t.photos.length === 1 ? '' : 's'} of notes`}>
+                      📷{t.photos.length > 1 ? t.photos.length : ''}
+                    </span>
+                  )}
                   {t.history.length > 0 && t.status !== 'forwarded' && (
                     <span className="fwd-count" title={`Forwarded ${t.history.length} times`}>
                       ↪{t.history.length}
