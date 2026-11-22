@@ -666,3 +666,10 @@ button { cursor: pointer; }
   line-height: 14px;
 }
 .status-cancelled .row-thumb, .status-forwarded .row-thumb { opacity: 0.55; }
+
+/* ---------- Sync indicator ---------- */
+.sync-btn { color: var(--muted); }
+.sync-btn.sync-synced { color: var(--cyan-ink); }
+.sync-btn.sync-connecting { color: var(--slate); opacity: 0.7; }
+.sync-btn.sync-error { color: var(--coral); }
+.top-actions { display: flex; align-items: center; gap: 2px; }

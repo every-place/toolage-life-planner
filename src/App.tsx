@@ -27,7 +27,7 @@ function hashFor(v: View): string {
 }
 
 export default function App() {
-  const { state, apply, replace } = usePlanner();
+  const { state, apply, replace, cloud } = usePlanner();
   const [view, setView] = useState<View>(viewFromHash);
   const [lastDay, setLastDay] = useState(view.name === 'day' ? view.date : today());
   const [focusGoal, setFocusGoal] = useState<string | undefined>();
@@ -54,7 +54,12 @@ export default function App() {
     setView({ name: 'goals' });
   };
 
-  const tabs: { key: View['name']; label: string; go: () => void; icon: JSX.Element }[] = [
+  const tabs: {
+    key: View['name'];
+    label: string;
+    go: () => void;
+    icon: JSX.Element;
+  }[] = [
     {
       key: 'day',
       label: 'Day',
@@ -109,29 +114,74 @@ export default function App() {
         </div>
         <nav className="tabs" aria-label="Sections">
           {tabs.map((t) => (
-            <button key={t.key} className={`tab${view.name === t.key ? ' on' : ''}`} onClick={t.go} aria-current={view.name === t.key ? 'page' : undefined}>
+            <button
+              key={t.key}
+              className={`tab${view.name === t.key ? ' on' : ''}`}
+              onClick={t.go}
+              aria-current={view.name === t.key ? 'page' : undefined}
+            >
               {t.icon}
               <span>{t.label}</span>
             </button>
           ))}
         </nav>
-        <button className="icon-btn" onClick={() => setShowSettings(true)} aria-label="Settings">
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-            <path
-              d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm7.4-2.1.1-1.4-.1-1.4 2-1.6-2-3.4-2.4 1a7 7 0 0 0-2.4-1.4L14.2 2.6h-4l-.4 2.6a7 7 0 0 0-2.4 1.4l-2.4-1-2 3.4 2 1.6-.1 1.4.1 1.4-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2.4 1.4l.4 2.6h4l.4-2.6a7 7 0 0 0 2.4-1.4l2.4 1 2-3.4-2-1.6Z"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+        <div className="top-actions">
+          <button
+            className={`icon-btn sync-btn sync-${cloud.user ? cloud.status : 'off'}`}
+            onClick={() => setShowSettings(true)}
+            aria-label={
+              !cloud.user ? 'Not syncing. Open settings to sign in.' : cloud.status === 'error' ? 'Sync problem. Open settings.' : 'Synced'
+            }
+            title={
+              !cloud.user
+                ? 'Not syncing'
+                : cloud.status === 'error'
+                  ? 'Sync problem'
+                  : cloud.status === 'connecting'
+                    ? 'Connecting…'
+                    : 'Synced'
+            }
+          >
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+              <path
+                d="M7 18h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.6 9.2 4.4 4.4 0 0 0 7 18Z"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinejoin="round"
+              />
+              {cloud.user && cloud.status === 'synced' && (
+                <path
+                  d="M9.5 13.5l2 2 3.5-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              )}
+              {cloud.user && cloud.status === 'error' && (
+                <path d="M12 10.5v3M12 15.6v.1" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+              )}
+              {!cloud.user && <path d="M4 4l16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />}
+            </svg>
+          </button>
+          <button className="icon-btn" onClick={() => setShowSettings(true)} aria-label="Settings">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+              <path
+                d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm7.4-2.1.1-1.4-.1-1.4 2-1.6-2-3.4-2.4 1a7 7 0 0 0-2.4-1.4L14.2 2.6h-4l-.4 2.6a7 7 0 0 0-2.4 1.4l-2.4-1-2 3.4 2 1.6-.1 1.4.1 1.4-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2.4 1.4l.4 2.6h4l.4-2.6a7 7 0 0 0 2.4-1.4l2.4 1 2-3.4-2-1.6Z"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
       </header>
 
       <main className="page">
-        {view.name === 'day' && (
-          <DayPage state={state} apply={apply} date={view.date} setDate={goDay} onOpenGoal={goGoal} />
-        )}
+        {view.name === 'day' && <DayPage state={state} apply={apply} date={view.date} setDate={goDay} onOpenGoal={goGoal} />}
         {view.name === 'month' && (
           <MonthPage
             state={state}
@@ -147,6 +197,7 @@ export default function App() {
       {showSettings && (
         <SettingsDialog
           state={state}
+          cloud={cloud}
           onSave={(s) => apply((st) => updateSettings(st, s))}
           onImport={(s) => replace(s)}
           onClose={() => setShowSettings(false)}

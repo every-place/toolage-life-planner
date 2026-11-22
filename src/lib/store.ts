@@ -1,9 +1,10 @@
-// Keeps the planner in the browser's local storage for now.
-// Cloud sync (so phone and computer share data) replaces this layer later;
-// the rest of the app only talks to usePlanner().
+// Keeps the planner in the browser's local storage, and in the cloud when
+// signed in (see cloud.ts), so phone and computer share the same planner.
+// The rest of the app only talks to usePlanner().
 
 import { useCallback, useEffect, useState } from 'react';
 import { DEFAULT_SETTINGS, emptyState, type PlannerState } from './model';
+import { useCloudSync } from './cloud';
 
 const KEY = 'lifeplanner.v1';
 
@@ -54,5 +55,6 @@ export function usePlanner() {
   }, []);
 
   const apply = useCallback((fn: (s: PlannerState) => PlannerState) => setState(fn), []);
-  return { state, apply, replace: setState };
+  const cloud = useCloudSync(state, apply);
+  return { state, apply, replace: setState, cloud };
 }

@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { PRIORITIES, type MarginTag, type PlannerState, type Priority, type Settings } from '../lib/model';
 import { normalize } from '../lib/store';
 import { exportPhotos, importPhotos } from '../lib/photos';
+import type { Cloud } from '../lib/cloud';
 
 interface Props {
   state: PlannerState;
+  cloud: Cloud;
   onSave: (settings: Settings) => void;
   onImport: (state: PlannerState) => void;
   onClose: () => void;
@@ -23,7 +25,7 @@ function cleanTags(rows: MarginTag[]): MarginTag[] {
   return out;
 }
 
-export function SettingsDialog({ state, onSave, onImport, onClose }: Props) {
+export function SettingsDialog({ state, cloud, onSave, onImport, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const [daily, setDaily] = useState(state.settings.dailyTasks.join('\n'));
   const [tags, setTags] = useState<MarginTag[]>(() => state.settings.tags.map((t) => ({ ...t })));
@@ -140,10 +142,47 @@ export function SettingsDialog({ state, onSave, onImport, onClose }: Props) {
           <p className="muted small">Use any letter or emoji, for example ♥ for Must.</p>
         </fieldset>
 
+        <fieldset className="field" id="set-sync">
+          <legend>Sync</legend>
+          {cloud.user ? (
+            <>
+              <p className="small">
+                Syncing as <b>{cloud.user.email}</b>.{' '}
+                {cloud.status === 'connecting' ? 'Connecting…' : cloud.status === 'synced' ? 'Up to date.' : ''}
+              </p>
+              <p className="muted small">Sign in with the same Google account on your phone and computer and they share one planner.</p>
+              <div>
+                <button type="button" className="btn ghost small-btn" onClick={() => cloud.signOut()}>
+                  Sign out
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="muted small">
+                Sign in with Google to share this planner between your phone and computer. What’s on this device is added to
+                your cloud copy the first time.
+              </p>
+              <div>
+                <button type="button" className="btn primary small-btn" disabled={!cloud.ready} onClick={() => cloud.signIn()}>
+                  Sign in with Google
+                </button>
+              </div>
+            </>
+          )}
+          {cloud.error && (
+            <p className="small danger-text" role="alert">
+              {cloud.error}
+            </p>
+          )}
+        </fieldset>
+
         <fieldset className="field">
           <legend>Backup</legend>
           <p className="muted small">
-            Your planner is saved in this browser. Back it up now and then, until sync between phone and computer is added.
+            {cloud.user
+              ? 'A backup file is a snapshot you keep yourself. Restoring one while signed in replaces the planner on every device.'
+              : 'Your planner is saved in this browser. Back it up now and then, or sign in above to sync.'}
           </p>
           <div className="btn-row">
             <button type="button" className="btn ghost" onClick={exportData}>
