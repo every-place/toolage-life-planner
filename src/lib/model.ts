@@ -243,6 +243,14 @@ export function nextStatus(s: Status): Status {
   return 'open';
 }
 
+/** Next status for a task when its status box is tapped: blank, dot, check, X, blank. */
+export function nextTaskStatus(s: Status): Status {
+  if (s === 'open') return 'inwork';
+  if (s === 'inwork') return 'done';
+  if (s === 'done') return 'cancelled';
+  return 'open';
+}
+
 export function isUnfinished(t: Task): boolean {
   return t.status === 'open' || t.status === 'inwork';
 }

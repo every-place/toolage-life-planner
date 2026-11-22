@@ -8,6 +8,7 @@ import {
   forwardTask,
   forwardUnfinished,
   moveTask,
+  nextTaskStatus,
   rankLabel,
   tasksForDay,
   updateTask,
@@ -122,5 +123,17 @@ describe('forwarding', () => {
     expect(moved.delegatee).toBe('JS');
     expect(moved.tag).toBe('E');
     expect(tasksForDay(s, D1).map((t) => t.status)).toEqual(['done', 'forwarded', 'forwarded', 'forwarded']);
+  });
+});
+
+describe('status cycle', () => {
+  it('taps through blank, dot, check, X and back to blank', () => {
+    const seen = ['open' as const];
+    let st: ReturnType<typeof nextTaskStatus> = 'open';
+    for (let i = 0; i < 4; i++) {
+      st = nextTaskStatus(st);
+      seen.push(st as never);
+    }
+    expect(seen).toEqual(['open', 'inwork', 'done', 'cancelled', 'open']);
   });
 });
