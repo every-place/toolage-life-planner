@@ -56,7 +56,7 @@ export function DayPage({ state, apply, date, setDate, onOpenGoal }: Props) {
   const tasks = useMemo(() => tasksForDay(state, date), [state, date]);
   const events = useMemo(() => eventsForDay(state, date), [state, date]);
   const unfinished = tasks.filter(isUnfinished);
-  const notOnPaper = tasks.filter((t) => t.status !== 'forwarded' && !t.onPaper).length + events.filter((e) => !e.onPaper).length;
+  const notOnPaper = tasks.filter((t) => !t.onPaper).length + events.filter((e) => !e.onPaper).length;
   const openTask = openId ? state.tasks.find((t) => t.id === openId) : undefined;
   const isToday = date === today();
   const activeGoals = state.goals.filter((g) => !g.done);
@@ -213,9 +213,9 @@ export function DayPage({ state, apply, date, setDate, onOpenGoal }: Props) {
                 <button
                   className="c-status status-btn"
                   onClick={() => cycle(t)}
-                  aria-label={`${t.title}: ${statusLabel(t.status)}. Tap to change.`}
+                  aria-label={`${t.title}: ${statusLabel(t.status)}${t.forwardedInWork ? ' after work started' : ''}. Tap to change.`}
                 >
-                  <StatusMark status={t.status} />
+                  <StatusMark status={t.status} overDot={t.forwardedInWork} />
                 </button>
                 <span className={`c-rank rank prio-${t.priority}`}>
                   {settings.prioritySymbols[t.priority]}
@@ -245,13 +245,11 @@ export function DayPage({ state, apply, date, setDate, onOpenGoal }: Props) {
                     </button>
                   )}
                   {t.photos && t.photos.length > 0 && <RowThumb ids={t.photos} onOpen={() => setOpenId(t.id)} />}
-                  {t.status !== 'forwarded' && (
-                    <PaperToggle
-                      on={!!t.onPaper}
-                      label={t.title}
-                      onChange={(on) => apply((s) => updateTask(s, t.id, { onPaper: on }))}
-                    />
-                  )}
+                  <PaperToggle
+                    on={!!t.onPaper}
+                    label={t.status === 'forwarded' ? `${t.title} (arrow drawn)` : t.title}
+                    onChange={(on) => apply((s) => updateTask(s, t.id, { onPaper: on }))}
+                  />
                 </span>
               </li>
             );

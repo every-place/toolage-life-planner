@@ -9,8 +9,23 @@ describe('on paper', () => {
     let s = addTask(emptyState(), { title: 'Call bank', date: D1, priority: 'A' });
     s = updateTask(s, s.tasks[0].id, { onPaper: true });
     s = forwardTask(s, s.tasks[0].id, D2);
-    expect(tasksForDay(s, D1)[0].onPaper).toBe(true);
+    // Old day: the arrow still has to be drawn. New day: the task has to be written.
+    expect(tasksForDay(s, D1)[0].onPaper).toBe(false);
     expect(tasksForDay(s, D2)[0].onPaper).toBe(false);
+  });
+
+  it('a task forwarded while in work keeps the dot on the new day and the arrow goes over the dot', () => {
+    let s = addTask(emptyState(), { title: 'Draft report', date: D1, priority: 'A' });
+    s = addTask(s, { title: 'Call bank', date: D1, priority: 'A' });
+    const [draft] = tasksForDay(s, D1);
+    s = updateTask(s, draft.id, { status: 'inwork' });
+    s = forwardUnfinished(s, D1, D2);
+    const old = tasksForDay(s, D1);
+    expect(old.map((t) => [t.status, !!t.forwardedInWork])).toEqual([
+      ['forwarded', true],
+      ['forwarded', false],
+    ]);
+    expect(tasksForDay(s, D2).map((t) => t.status)).toEqual(['inwork', 'open']);
   });
 
   it('moving an event to another day clears its paper mark; other edits keep it', () => {
