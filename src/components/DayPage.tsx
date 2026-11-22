@@ -22,6 +22,7 @@ import { StatusMark, statusLabel } from './StatusMark';
 import { TaskDetail } from './TaskDetail';
 import { EventDialog } from './EventDialog';
 import { PaperToggle } from './PaperToggle';
+import { RowThumb } from './RowThumb';
 
 interface Props {
   state: PlannerState;
@@ -224,11 +225,6 @@ export function DayPage({ state, apply, date, setDate, onOpenGoal }: Props) {
                     <span className="title-text">{t.title}</span>
                     {gTitle && <span className="goal-line">◎ {gTitle}</span>}
                   </span>
-                  {t.photos && t.photos.length > 0 && (
-                    <span className="fwd-count" title={`${t.photos.length} photo${t.photos.length === 1 ? '' : 's'} of notes`}>
-                      📷{t.photos.length > 1 ? t.photos.length : ''}
-                    </span>
-                  )}
                   {t.history.length > 0 && t.status !== 'forwarded' && (
                     <span className="fwd-count" title={`Forwarded ${t.history.length} times`}>
                       ↪{t.history.length}
@@ -241,15 +237,16 @@ export function DayPage({ state, apply, date, setDate, onOpenGoal }: Props) {
                     </span>
                   )}
                 </button>
-                {t.status === 'forwarded' ? (
-                  <span />
-                ) : (
-                  <PaperToggle
-                    on={!!t.onPaper}
-                    label={t.title}
-                    onChange={(on) => apply((s) => updateTask(s, t.id, { onPaper: on }))}
-                  />
-                )}
+                <span className="c-side">
+                  {t.photos && t.photos.length > 0 && <RowThumb ids={t.photos} onOpen={() => setOpenId(t.id)} />}
+                  {t.status !== 'forwarded' && (
+                    <PaperToggle
+                      on={!!t.onPaper}
+                      label={t.title}
+                      onChange={(on) => apply((s) => updateTask(s, t.id, { onPaper: on }))}
+                    />
+                  )}
+                </span>
               </li>
             );
           })}

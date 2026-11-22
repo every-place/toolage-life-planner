@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { deletePhoto, getPhoto, savePhoto } from '../lib/photos';
+import { deletePhoto, savePhoto } from '../lib/photos';
+import { useObjectUrl } from '../lib/usePhotoUrl';
 
 interface Props {
   ids: string[];
@@ -8,26 +9,6 @@ interface Props {
   isShared: (id: string) => boolean;
 }
 
-function useObjectUrl(id: string) {
-  const [url, setUrl] = useState<string>();
-  useEffect(() => {
-    let live = true;
-    let made: string | undefined;
-    getPhoto(id)
-      .then((blob) => {
-        if (live && blob) {
-          made = URL.createObjectURL(blob);
-          setUrl(made);
-        }
-      })
-      .catch(() => undefined);
-    return () => {
-      live = false;
-      if (made) URL.revokeObjectURL(made);
-    };
-  }, [id]);
-  return url;
-}
 
 function Thumb({ id, onOpen }: { id: string; onOpen: () => void }) {
   const url = useObjectUrl(id);
