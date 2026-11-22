@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addEvent, addTask, emptyState, forwardTask, tasksForDay, updateEvent, updateTask } from './model';
+import { addEvent, addTask, emptyState, forwardTask, forwardUnfinished, tasksForDay, updateEvent, updateTask } from './model';
 
 const D1 = '2026-11-21';
 const D2 = '2026-11-22';
@@ -28,5 +28,14 @@ describe('on paper', () => {
     s = updateTask(s, s.tasks[0].id, { photos: ['ph-1', 'ph-2'] });
     s = forwardTask(s, s.tasks[0].id, D2);
     expect(tasksForDay(s, D2)[0].photos).toEqual(['ph-1', 'ph-2']);
+  });
+
+  it('cancelled tasks stay on their day and are not forwarded', () => {
+    let s = addTask(emptyState(), { title: 'Lunch with Joe', date: D1, priority: 'B' });
+    s = addTask(s, { title: 'Call bank', date: D1, priority: 'A' });
+    s = updateTask(s, tasksForDay(s, D1)[1].id, { status: 'cancelled' });
+    s = forwardUnfinished(s, D1, D2);
+    expect(tasksForDay(s, D1).map((t) => t.status)).toEqual(['forwarded', 'cancelled']);
+    expect(tasksForDay(s, D2).map((t) => t.title)).toEqual(['Call bank']);
   });
 });

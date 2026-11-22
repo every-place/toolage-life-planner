@@ -255,6 +255,17 @@ export function TaskDetail({ task, state, apply, onClose, onGoTo, onOpenGoal }: 
               <button type="button" className="btn ghost danger-text" onClick={() => setConfirmDelete(true)}>
                 Delete
               </button>
+              {task.status === 'cancelled' ? (
+                <button type="button" className="btn ghost" onClick={() => apply((s) => updateTask(s, task.id, { status: 'open' }))}>
+                  Restore task
+                </button>
+              ) : (
+                task.status !== 'forwarded' && (
+                  <button type="button" className="btn ghost" onClick={() => apply((s) => updateTask(s, task.id, { status: 'cancelled' }))}>
+                    ✕ Cancel task
+                  </button>
+                )
+              )}
               <button type="submit" className="btn primary">
                 Done
               </button>
