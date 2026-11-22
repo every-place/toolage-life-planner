@@ -5,8 +5,8 @@
 export type Priority = 'A' | 'B' | 'C';
 export const PRIORITIES: Priority[] = ['A', 'B', 'C'];
 
-/** open = no mark yet; inwork = dot; done = check; forwarded = right arrow. */
-export type Status = 'open' | 'inwork' | 'done' | 'forwarded';
+/** open = no mark yet; inwork = dot; done = check; forwarded = right arrow; cancelled = X. */
+export type Status = 'open' | 'inwork' | 'done' | 'forwarded' | 'cancelled';
 
 export interface ForwardEntry {
   from: string; // day key

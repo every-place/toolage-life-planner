@@ -72,7 +72,7 @@ export function DayPage({ state, apply, date, setDate, onOpenGoal }: Props) {
   };
 
   const cycle = (t: Task) => {
-    if (t.status === 'forwarded') {
+    if (t.status === 'forwarded' || t.status === 'cancelled') {
       setOpenId(t.id);
       return;
     }
@@ -174,7 +174,7 @@ export function DayPage({ state, apply, date, setDate, onOpenGoal }: Props) {
         <div className="list-head">
           <h2>Prioritized Daily Task List</h2>
           <span className="muted small">
-            {tasks.filter((t) => t.status === 'done').length} of {tasks.length} done
+            {tasks.filter((t) => t.status === 'done').length} of {tasks.filter((t) => t.status !== 'cancelled').length} done
             {notOnPaper > 0 && ` · ${notOnPaper} not on paper yet`}
           </span>
         </div>

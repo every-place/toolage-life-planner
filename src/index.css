@@ -626,3 +626,10 @@ button { cursor: pointer; }
 .photo-add input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .viewer { width: min(900px, calc(100% - 24px)); }
 .viewer-img { width: 100%; max-height: 75vh; object-fit: contain; border-radius: 10px; background: var(--bg); }
+
+/* ---------- Cancelled ---------- */
+.status-cancelled .status-btn { color: var(--done); }
+.status-cancelled .title-text, .status-cancelled .rank, .status-cancelled .c-tag, .status-cancelled .goal-line { color: var(--done); }
+.status-cancelled .title-text { text-decoration: line-through; text-decoration-color: var(--done); }
+.status-cancelled .initials { border-color: var(--done); color: var(--done); }
+.status-cancelled { background: color-mix(in srgb, var(--bg) 60%, transparent); }
