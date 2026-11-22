@@ -633,3 +633,36 @@ button { cursor: pointer; }
 .status-cancelled .title-text { text-decoration: line-through; text-decoration-color: var(--done); }
 .status-cancelled .initials { border-color: var(--done); color: var(--done); }
 .status-cancelled { background: color-mix(in srgb, var(--bg) 60%, transparent); }
+
+/* ---------- Right column: photo + on paper ---------- */
+.c-side { display: grid; justify-items: center; align-content: center; gap: 3px; padding: 4px 0; }
+.c-side .paper { width: 28px; height: 28px; }
+.c-side .paper svg { width: 16px; height: 16px; }
+.row-thumb {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1.5px solid var(--line);
+  border-radius: 6px;
+  background: var(--wash);
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1;
+}
+.row-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.row-thumb-count {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  min-width: 14px;
+  padding: 0 3px;
+  border-radius: 6px 0 0 0;
+  background: var(--navy);
+  color: #fff;
+  font-family: var(--display);
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 14px;
+}
+.status-cancelled .row-thumb, .status-forwarded .row-thumb { opacity: 0.55; }
