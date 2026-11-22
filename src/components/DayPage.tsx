@@ -9,6 +9,7 @@ import {
   forwardUnfinished,
   isUnfinished,
   nextStatus,
+  nextTaskStatus,
   setDailyStatus,
   tasksForDay,
   updateEvent,
@@ -73,11 +74,11 @@ export function DayPage({ state, apply, date, setDate, onOpenGoal }: Props) {
   };
 
   const cycle = (t: Task) => {
-    if (t.status === 'forwarded' || t.status === 'cancelled') {
+    if (t.status === 'forwarded') {
       setOpenId(t.id);
       return;
     }
-    apply((s) => updateTask(s, t.id, { status: nextStatus(t.status) }));
+    apply((s) => updateTask(s, t.id, { status: nextTaskStatus(t.status) }));
   };
 
   const forwardAll = () => {
