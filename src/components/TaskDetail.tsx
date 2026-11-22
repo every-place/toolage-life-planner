@@ -16,6 +16,8 @@ import {
   type Task,
 } from '../lib/model';
 import { statusLabel } from './StatusMark';
+import { PhotoStrip } from './PhotoStrip';
+import { deletePhoto } from '../lib/photos';
 
 interface Props {
   task: Task;
@@ -164,6 +166,12 @@ export function TaskDetail({ task, state, apply, onClose, onGoTo, onOpenGoal }: 
           <textarea id="detail-notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} onBlur={save} />
         </label>
 
+        <PhotoStrip
+          ids={task.photos ?? []}
+          onChange={(photos) => apply((s) => updateTask(s, task.id, { photos: photos.length ? photos : undefined }))}
+          isShared={(pid) => state.tasks.some((t) => t.id !== task.id && t.photos?.includes(pid))}
+        />
+
         {unfinished && (
           <div className="forward-box">
             <label className="field">
@@ -233,6 +241,9 @@ export function TaskDetail({ task, state, apply, onClose, onGoTo, onOpenGoal }: 
                 className="btn danger"
                 onClick={() => {
                   apply((s) => deleteTask(s, task.id));
+                  for (const pid of task.photos ?? []) {
+                    if (!state.tasks.some((t) => t.id !== task.id && t.photos?.includes(pid))) deletePhoto(pid).catch(() => undefined);
+                  }
                   onClose();
                 }}
               >

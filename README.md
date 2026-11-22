@@ -21,6 +21,7 @@ Part of the [Toolage Works](https://www.toolageworks.com) family of apps.
 - Link any task to a goal from the task list or its detail sheet
 - Month calendar for future events; each event shows under Appointments on its day's page
 - On paper: a pen mark on every task, event and goal shows it's written in the paper planner; forwarded tasks and moved events reset it
+- Photos of handwritten notes on each task (take with the camera or choose from the library), kept with the task when forwarded and included in backups
 - Margin letters editor in Settings, also reachable from any tag dropdown (Edit letters…)
 - Settings for daily tasks, tags and priority symbols (use a ♥ if you like), plus backup and restore
 

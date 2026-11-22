@@ -46,6 +46,8 @@ export interface Task {
   stepId?: string;
   /** Written in the paper planner on this day. */
   onPaper?: boolean;
+  /** Ids of photos of handwritten notes (stored in IndexedDB). */
+  photos?: string[];
 }
 
 export interface GoalStep {
@@ -186,7 +188,7 @@ export function addTask(state: PlannerState, input: NewTaskInput, now = new Date
 export function updateTask(
   state: PlannerState,
   id: string,
-  patch: Partial<Pick<Task, 'title' | 'tag' | 'notes' | 'delegatee' | 'status' | 'goalId' | 'stepId' | 'onPaper'>>,
+  patch: Partial<Pick<Task, 'title' | 'tag' | 'notes' | 'delegatee' | 'status' | 'goalId' | 'stepId' | 'onPaper' | 'photos'>>,
 ): PlannerState {
   const before = state.tasks.find((t) => t.id === id);
   let next: PlannerState = { ...state, tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)) };

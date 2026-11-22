@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { PRIORITIES, type MarginTag, type PlannerState, type Priority, type Settings } from '../lib/model';
 import { normalize } from '../lib/store';
+import { exportPhotos, importPhotos } from '../lib/photos';
 
 interface Props {
   state: PlannerState;
@@ -47,8 +48,12 @@ export function SettingsDialog({ state, onSave, onImport, onClose }: Props) {
     onClose();
   };
 
-  const exportData = () => {
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const exportData = async () => {
+    setMessage('Preparing backup…');
+    const ids = state.tasks.flatMap((t) => t.photos ?? []);
+    const photos = await exportPhotos(ids).catch(() => ({}));
+    const blob = new Blob([JSON.stringify({ ...state, photos }, null, 2)], { type: 'application/json' });
+    setMessage(`Backup saved with ${Object.keys(photos).length} photos.`);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `lifeplanner-backup-${new Date().toISOString().slice(0, 10)}.json`;
@@ -58,9 +63,11 @@ export function SettingsDialog({ state, onSave, onImport, onClose }: Props) {
 
   const importData = async (file: File) => {
     try {
-      const data = normalize(JSON.parse(await file.text()));
+      const raw = JSON.parse(await file.text());
+      const data = normalize(raw);
+      const n = raw && typeof raw.photos === 'object' ? await importPhotos(raw.photos) : 0;
       onImport(data);
-      setMessage(`Restored ${data.tasks.length} tasks from ${file.name}.`);
+      setMessage(`Restored ${data.tasks.length} tasks and ${n} photos from ${file.name}.`);
     } catch {
       setMessage('That file is not a LifePlanner backup. Choose a .json file saved from Back up.');
     }
