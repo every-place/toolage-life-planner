@@ -198,6 +198,7 @@ export default function App() {
         <SettingsDialog
           state={state}
           cloud={cloud}
+          apply={apply}
           onSave={(s) => apply((st) => updateSettings(st, s))}
           onImport={(s) => replace(s)}
           onClose={() => setShowSettings(false)}

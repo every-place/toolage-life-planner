@@ -28,6 +28,7 @@ export function normalize(data: unknown): PlannerState {
     daily: d.daily && typeof d.daily === 'object' ? d.daily : {},
     goals: Array.isArray(d.goals) ? d.goals : [],
     events: Array.isArray(d.events) ? d.events : [],
+    inbox: Array.isArray(d.inbox) ? d.inbox : [],
     settings: { ...DEFAULT_SETTINGS, ...(d.settings ?? {}) },
   };
 }

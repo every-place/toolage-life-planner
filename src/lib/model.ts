@@ -48,6 +48,40 @@ export interface Task {
   onPaper?: boolean;
   /** Ids of photos of handwritten notes (stored in IndexedDB). */
   photos?: string[];
+  /** Where the task came from, when it arrived through the task inbox. */
+  source?: TaskSource;
+  /** Due date the sending system gave, as a day key. */
+  due?: string;
+}
+
+/** Where an inbox task came from (another app, a Claude project, an import). */
+export interface TaskSource {
+  /** Shown to you, e.g. "Claude: LifePlanner project" or "Import". */
+  name: string;
+  /** A link back to the item in the other system. */
+  link?: string;
+  /** The other system's id for the task, used to skip repeats. */
+  externalId?: string;
+  /** Id the task had in the inbox, also used to skip repeats. */
+  intakeId?: string;
+  /** When it reached LifePlanner. */
+  receivedAt: string;
+}
+
+/**
+ * A task sent in from another system. It waits in the inbox, without a
+ * priority, until you give it a letter and place it on a day while planning.
+ */
+export interface InboxItem {
+  id: string;
+  title: string;
+  notes?: string;
+  tag?: string;
+  /** Day key. */
+  due?: string;
+  /** The sender's suggested letter. Only a hint: you still choose. */
+  suggested?: Priority;
+  source: TaskSource;
 }
 
 export interface GoalStep {
@@ -92,6 +126,8 @@ export interface Settings {
   tags: MarginTag[];
   /** What to show for each priority letter, e.g. a heart for A. */
   prioritySymbols: Record<Priority, string>;
+  /** Secret key other systems use to send tasks to the inbox. Unset = inbox off. */
+  intakeKey?: string;
 }
 
 export interface PlannerState {
@@ -101,6 +137,8 @@ export interface PlannerState {
   daily: Record<string, Record<string, Status>>;
   goals: Goal[];
   events: PlannerEvent[];
+  /** Tasks sent in from other systems, waiting to be prioritized. */
+  inbox: InboxItem[];
   settings: Settings;
 }
 
@@ -114,7 +152,7 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 export function emptyState(): PlannerState {
-  return { version: 1, tasks: [], daily: {}, goals: [], events: [], settings: structuredClone(DEFAULT_SETTINGS) };
+  return { version: 1, tasks: [], daily: {}, goals: [], events: [], inbox: [], settings: structuredClone(DEFAULT_SETTINGS) };
 }
 
 let counter = 0;
