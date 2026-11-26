@@ -158,7 +158,9 @@ export function TaskDetail({ task, state, apply, onClose, onGoTo, onOpenGoal }: 
             checked={!!task.onPaper}
             onChange={(e) => apply((s) => updateTask(s, task.id, { onPaper: e.target.checked }))}
           />
-          On paper (written in my paper planner on this day)
+          {task.status === 'forwarded'
+            ? 'On paper (forward arrow drawn in my paper planner)'
+            : 'On paper (written in my paper planner on this day)'}
         </label>
 
         <label className="field">
