@@ -24,6 +24,7 @@ import { TaskDetail } from './TaskDetail';
 import { EventDialog } from './EventDialog';
 import { PaperToggle } from './PaperToggle';
 import { RowThumb } from './RowThumb';
+import { InboxSection } from './InboxSection';
 
 interface Props {
   state: PlannerState;
@@ -171,6 +172,8 @@ export function DayPage({ state, apply, date, setDate, onOpenGoal }: Props) {
           </ul>
         )}
       </section>
+
+      <InboxSection state={state} apply={apply} date={date} />
 
       <section className="list" aria-label="Prioritized daily task list">
         <div className="list-head">

@@ -2,9 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { PRIORITIES, type MarginTag, type PlannerState, type Priority, type Settings } from '../lib/model';
 import { normalize } from '../lib/store';
 import { exportPhotos, importPhotos } from '../lib/photos';
+import type { Cloud } from '../lib/cloud';
+import { claudeInstructions, curlExample, generateKey, intakeUrl, registerKey, revokeKey } from '../lib/intake';
+import { ImportDialog } from './ImportDialog';
 
 interface Props {
   state: PlannerState;
+  cloud: Cloud;
+  apply: (fn: (s: PlannerState) => PlannerState) => void;
   onSave: (settings: Settings) => void;
   onImport: (state: PlannerState) => void;
   onClose: () => void;
@@ -23,12 +28,55 @@ function cleanTags(rows: MarginTag[]): MarginTag[] {
   return out;
 }
 
-export function SettingsDialog({ state, onSave, onImport, onClose }: Props) {
+export function SettingsDialog({ state, cloud, apply, onSave, onImport, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const [daily, setDaily] = useState(state.settings.dailyTasks.join('\n'));
   const [tags, setTags] = useState<MarginTag[]>(() => state.settings.tags.map((t) => ({ ...t })));
   const [symbols, setSymbols] = useState(state.settings.prioritySymbols);
   const [message, setMessage] = useState('');
+  const [inboxMsg, setInboxMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const intakeKey = state.settings.intakeKey;
+
+  const setKey = (key: string | undefined) =>
+    apply((s) => ({ ...s, settings: { ...s.settings, intakeKey: key } }));
+
+  /** Turns on a new key (replacing the old one, which stops working). */
+  const newKey = async () => {
+    if (!cloud.user) return;
+    setBusy(true);
+    setInboxMsg('');
+    try {
+      const key = generateKey();
+      await registerKey(cloud.user.uid, key);
+      if (intakeKey) await revokeKey(intakeKey).catch(() => undefined);
+      setKey(key);
+      setInboxMsg(intakeKey ? 'New key made. The old one no longer works; update anything that used it.' : 'Task inbox is on.');
+    } catch {
+      setInboxMsg('Could not turn on the inbox. Check that the latest Firestore rules from the README are published.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const turnOff = async () => {
+    if (!intakeKey) return;
+    setBusy(true);
+    await revokeKey(intakeKey).catch(() => undefined);
+    setKey(undefined);
+    setBusy(false);
+    setInboxMsg('Task inbox is off. Tasks sent with the old key are refused.');
+  };
+
+  const copy = async (text: string, what: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setInboxMsg(`${what} copied.`);
+    } catch {
+      setInboxMsg('Copying is blocked here. Select the text below and copy it yourself.');
+    }
+  };
 
   useEffect(() => {
     const d = ref.current;
@@ -37,6 +85,7 @@ export function SettingsDialog({ state, onSave, onImport, onClose }: Props) {
 
   const save = () => {
     onSave({
+      ...state.settings,
       dailyTasks: daily.split('\n').map((s) => s.trim()).filter(Boolean),
       tags: cleanTags(tags),
       prioritySymbols: {
@@ -140,10 +189,103 @@ export function SettingsDialog({ state, onSave, onImport, onClose }: Props) {
           <p className="muted small">Use any letter or emoji, for example ♥ for Must.</p>
         </fieldset>
 
+        <fieldset className="field" id="set-sync">
+          <legend>Sync</legend>
+          {cloud.user ? (
+            <>
+              <p className="small">
+                Syncing as <b>{cloud.user.email}</b>.{' '}
+                {cloud.status === 'connecting' ? 'Connecting…' : cloud.status === 'synced' ? 'Up to date.' : ''}
+              </p>
+              <p className="muted small">Sign in with the same Google account on your phone and computer and they share one planner.</p>
+              <div>
+                <button type="button" className="btn ghost small-btn" onClick={() => cloud.signOut()}>
+                  Sign out
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="muted small">
+                Sign in with Google to share this planner between your phone and computer. What’s on this device is added to
+                your cloud copy the first time.
+              </p>
+              <div>
+                <button type="button" className="btn primary small-btn" disabled={!cloud.ready} onClick={() => cloud.signIn()}>
+                  Sign in with Google
+                </button>
+              </div>
+            </>
+          )}
+          {cloud.error && (
+            <p className="small danger-text" role="alert">
+              {cloud.error}
+            </p>
+          )}
+        </fieldset>
+
+        <fieldset className="field" id="set-inbox">
+          <legend>Task inbox</legend>
+          <p className="muted small">
+            Let other systems, like your Claude projects, send tasks to your inbox. They show up above the task list without a
+            priority, for you to letter while planning.
+          </p>
+          {!cloud.user ? (
+            <p className="muted small">Sign in above to get an address other systems can send tasks to.</p>
+          ) : intakeKey ? (
+            <>
+              <p className="small">
+                On. Tasks arrive whenever LifePlanner is open on one of your devices.
+              </p>
+              <div className="btn-row">
+                <button type="button" className="btn primary small-btn" onClick={() => copy(claudeInstructions(intakeKey, state.settings.tags), 'Instructions for Claude')}>
+                  Copy instructions for Claude
+                </button>
+                <button type="button" className="btn ghost small-btn" onClick={() => copy(intakeUrl(intakeKey), 'Address')}>
+                  Copy address
+                </button>
+                <button type="button" className="btn ghost small-btn" onClick={() => copy(curlExample(intakeKey, state.settings.tags), 'Example')}>
+                  Copy example
+                </button>
+              </div>
+              <p className="muted small">
+                Paste the instructions into a Claude project’s instructions; then ask it to send tasks to your planner. The key
+                in the address lets anyone who has it add tasks (but never read them), so keep it private.
+              </p>
+              <details className="small">
+                <summary>Show address</summary>
+                <code className="inbox-url">{intakeUrl(intakeKey)}</code>
+              </details>
+              <div className="btn-row">
+                <button type="button" className="btn ghost small-btn" disabled={busy} onClick={newKey}>
+                  Make a new key
+                </button>
+                <button type="button" className="btn ghost small-btn" disabled={busy} onClick={turnOff}>
+                  Turn off
+                </button>
+              </div>
+            </>
+          ) : (
+            <div>
+              <button type="button" className="btn primary small-btn" disabled={busy} onClick={newKey}>
+                Turn on task inbox
+              </button>
+            </div>
+          )}
+          <div>
+            <button type="button" className="btn ghost small-btn" onClick={() => setImporting(true)}>
+              Import tasks from a list or file…
+            </button>
+          </div>
+          {inboxMsg && <p className="small" role="status">{inboxMsg}</p>}
+        </fieldset>
+
         <fieldset className="field">
           <legend>Backup</legend>
           <p className="muted small">
-            Your planner is saved in this browser. Back it up now and then, until sync between phone and computer is added.
+            {cloud.user
+              ? 'A backup file is a snapshot you keep yourself. Restoring one while signed in replaces the planner on every device.'
+              : 'Your planner is saved in this browser. Back it up now and then, or sign in above to sync.'}
           </p>
           <div className="btn-row">
             <button type="button" className="btn ghost" onClick={exportData}>
@@ -166,6 +308,7 @@ export function SettingsDialog({ state, onSave, onImport, onClose }: Props) {
           </button>
         </footer>
       </form>
+      {importing && <ImportDialog state={state} apply={apply} onClose={() => setImporting(false)} />}
     </dialog>
   );
 }

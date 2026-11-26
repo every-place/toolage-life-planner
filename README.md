@@ -25,8 +25,21 @@ Part of the [Toolage Works](https://www.toolageworks.com) family of apps.
 - Margin letters editor in Settings, also reachable from any tag dropdown (Edit letters…)
 - Settings for daily tasks, tags and priority symbols (use a ♥ if you like), plus backup and restore
 
-Data is stored in the browser for now. Sync between phone and computer and
-Google Calendar/Tasks sync are next.
+- Sync between phone and computer: sign in with Google in Settings and every device
+  shares one planner, photos included. A cloud icon in the top bar shows the sync state.
+
+Data is kept in the browser and, when signed in, in Firebase (Firestore) under
+`users/{uid}`, one document per task, goal, event and day. Only the signed-in
+person can read or write their own data (see `firestore.rules`).
+Google Calendar/Tasks sync is next.
+
+### Task inbox
+
+Other systems, such as Claude projects, can send tasks to an Inbox that sits
+above the task list. They arrive without a priority; tap A, B or C to put one
+on the day. Turn it on in Settings → Task inbox, or import a pasted list, JSON
+or CSV file. Format and setup: [docs/task-inbox.md](docs/task-inbox.md).
+The inbox needs the current `firestore.rules` published in the Firebase console.
 
 ## Develop
 
@@ -36,5 +49,9 @@ npm run dev     # local server
 npm test        # unit tests for ranking and forwarding
 npm run build   # production build in dist/
 ```
+
+To try sync locally without touching the real project, run the Firebase
+emulators (`npx firebase-tools emulators:start`) and build with
+`VITE_FIREBASE_EMULATORS=1`.
 
 Pushing to `main` deploys to GitHub Pages (Settings → Pages → Source: GitHub Actions).

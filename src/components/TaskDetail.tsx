@@ -210,6 +210,20 @@ export function TaskDetail({ task, state, apply, onClose, onGoTo, onOpenGoal }: 
             Written {new Date(task.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })} · first
             planned for {formatLong(task.originDate)}
           </p>
+          {task.source && (
+            <p className="muted small">
+              Came from {task.source.name}
+              {task.due && <> · due {formatShort(task.due)}</>}
+              {task.source.link && (
+                <>
+                  {' · '}
+                  <a className="link" href={task.source.link} target="_blank" rel="noreferrer">
+                    Open
+                  </a>
+                </>
+              )}
+            </p>
+          )}
           {task.history.length === 0 ? (
             <p className="muted small">Never forwarded.</p>
           ) : (

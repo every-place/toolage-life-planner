@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Your planner: only you can read or change it.
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Task inbox keys. Each one belongs to the account that turned it on.
+    // Nobody can list them, so a key can't be discovered.
+    match /intakeKeys/{key} {
+      allow get, delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'createdAt'])
+        && key.size() >= 32;
+    }
+
+    // The drop box other systems send tasks to. Anyone with a live key can
+    // add a task (no reading, no changing). Only the key's owner can read
+    // and clear it.
+    match /intake/{key}/tasks/{id} {
+      allow create: if exists(/databases/$(database)/documents/intakeKeys/$(key))
+        && validTask(request.resource.data);
+      allow read, delete: if request.auth != null
+        && get(/databases/$(database)/documents/intakeKeys/$(key)).data.uid == request.auth.uid;
+    }
+
+    function optString(d, f, max) {
+      return !(f in d) || (d[f] is string && d[f].size() <= max);
+    }
+
+    function validTask(d) {
+      return d.keys().hasOnly(['title', 'notes', 'tag', 'due', 'priority', 'source', 'link', 'id'])
+        && d.title is string && d.title.size() > 0 && d.title.size() <= 300
+        && optString(d, 'notes', 5000)
+        && optString(d, 'tag', 2)
+        && optString(d, 'due', 30)
+        && optString(d, 'priority', 10)
+        && optString(d, 'source', 100)
+        && optString(d, 'link', 1000)
+        && optString(d, 'id', 200);
+    }
+  }
+}
