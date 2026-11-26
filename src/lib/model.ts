@@ -38,6 +38,8 @@ export interface Task {
   arrivedByForward: boolean;
   /** For a copy left behind with status "forwarded": where it went. */
   forwardedTo?: string;
+  /** For a copy left behind with status "forwarded": it was in work (dot) when forwarded, so the arrow is drawn over the dot. */
+  forwardedInWork?: boolean;
   /** Every forward of this task, oldest first. */
   history: ForwardEntry[];
   /** Goal this task works toward, if any. */
@@ -294,7 +296,16 @@ export function forwardTask(state: PlannerState, id: string, toDate: string, now
   };
 
   const tasks = state.tasks.map((t) => {
-    if (t.id === task.id) return { ...t, status: 'forwarded' as Status, forwardedTo: toDate, history: copy.history };
+    if (t.id === task.id)
+      return {
+        ...t,
+        status: 'forwarded' as Status,
+        forwardedTo: toDate,
+        forwardedInWork: task.status === 'inwork' || undefined,
+        history: copy.history,
+        // The arrow still has to be drawn through the status box on paper.
+        onPaper: false,
+      };
     if (t.date === toDate && t.priority === task.priority && t.rank >= newRank) return { ...t, rank: t.rank + 1 };
     return t;
   });
