@@ -15,6 +15,7 @@ const firebaseConfig = {
   appId: '1:502596886105:web:b6ad6f1ababb47ee9bdb48',
 };
 
+export const firebaseProjectId = firebaseConfig.projectId;
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 // Keeps a copy in the browser so the app works offline and catches up later.

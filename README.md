@@ -33,6 +33,14 @@ Data is kept in the browser and, when signed in, in Firebase (Firestore) under
 person can read or write their own data (see `firestore.rules`).
 Google Calendar/Tasks sync is next.
 
+### Task inbox
+
+Other systems, such as Claude projects, can send tasks to an Inbox that sits
+above the task list. They arrive without a priority; tap A, B or C to put one
+on the day. Turn it on in Settings → Task inbox, or import a pasted list, JSON
+or CSV file. Format and setup: [docs/task-inbox.md](docs/task-inbox.md).
+The inbox needs the current `firestore.rules` published in the Firebase console.
+
 ## Develop
 
 ```sh

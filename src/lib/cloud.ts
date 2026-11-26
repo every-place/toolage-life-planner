@@ -17,6 +17,7 @@ import { auth, db } from './firebase';
 import { emptyState, type PlannerState } from './model';
 import { applyDoc, COLLECTIONS, diffState, mergeFirst, type DocOp } from './syncModel';
 import { setPhotoCloud, uploadMissingPhotos } from './photos';
+import { useIntake } from './intake';
 
 export type SyncStatus = 'off' | 'connecting' | 'synced' | 'error';
 
@@ -171,6 +172,10 @@ export function useCloudSync(state: PlannerState, setState: (fn: (s: PlannerStat
     const added = ops.filter((o) => o.coll === 'tasks' && o.data).flatMap((o) => (o.data!.photos as string[] | undefined) ?? []);
     if (added.length) uploadMissingPhotos(added).catch(() => undefined);
   }, [state, uid]);
+
+  // Tasks sent in from other systems. Waits for the first merge so an
+  // arrival can't be overwritten by it.
+  useIntake(status === 'synced' ? uid : undefined, state.settings.intakeKey, setState);
 
   const signIn = async () => {
     setError('');

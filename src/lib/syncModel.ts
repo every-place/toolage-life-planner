@@ -3,10 +3,10 @@
 // settings, all under users/{uid}. These functions turn local state changes
 // into document writes and apply document changes back onto local state.
 
-import { DEFAULT_SETTINGS, type Goal, type PlannerEvent, type PlannerState, type Settings, type Status, type Task } from './model';
+import { DEFAULT_SETTINGS, type Goal, type InboxItem, type PlannerEvent, type PlannerState, type Settings, type Status, type Task } from './model';
 
-export type Coll = 'tasks' | 'goals' | 'events' | 'days' | 'meta';
-export const COLLECTIONS: Coll[] = ['tasks', 'goals', 'events', 'days', 'meta'];
+export type Coll = 'tasks' | 'goals' | 'events' | 'inbox' | 'days' | 'meta';
+export const COLLECTIONS: Coll[] = ['tasks', 'goals', 'events', 'inbox', 'days', 'meta'];
 export const SETTINGS_ID = 'settings';
 
 /** One document write: data, or null to delete it. */
@@ -40,6 +40,7 @@ export function diffState(a: PlannerState, b: PlannerState): DocOp[] {
   diffList('tasks', a.tasks, b.tasks, ops);
   diffList('goals', a.goals, b.goals, ops);
   diffList('events', a.events, b.events, ops);
+  diffList('inbox', a.inbox ?? [], b.inbox ?? [], ops);
   if (a.daily !== b.daily) {
     const days = new Set([...Object.keys(a.daily), ...Object.keys(b.daily)]);
     for (const d of days) {
@@ -80,6 +81,10 @@ export function applyDoc(s: PlannerState, op: DocOp): PlannerState {
     case 'events': {
       const events = upsert<PlannerEvent>(s.events, op.id, op.data);
       return events === s.events ? s : { ...s, events };
+    }
+    case 'inbox': {
+      const inbox = upsert<InboxItem>(s.inbox, op.id, op.data);
+      return inbox === s.inbox ? s : { ...s, inbox };
     }
     case 'days': {
       if (op.data === null) {
